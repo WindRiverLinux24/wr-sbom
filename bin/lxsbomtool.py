@@ -68,9 +68,8 @@ Value:
 license_copyright_buffer = dict()
 
 license_refs = []
-sql_version_file = "wr-sbom-dl-4.0/Linux-22-LTS.sqlite3.xz"
-default_db_file = f"{scripts_path}/../../{sql_version_file}"
-cached_db_file = f"{os.environ['BUILDDIR']}/cache/wr-sbom/Linux-22-LTS.sqlite3"
+sqlite_db_files = f"{scripts_path}/../../wr-sbom-dl-4.0/sqlite_db_files"
+cached_db_file = f"{os.environ['BUILDDIR']}/cache/wr-sbom/WRLinux-LTS.sqlite3"
 
 recipe_file_lookup = {}
 source_file_lookup = {}
@@ -620,17 +619,51 @@ def main():
     index_json = json.load(index_fp)
 
     ## check for the db_file, create sqlite3 file if needed
-    if not os.path.exists(cached_db_file):
-        if not os.path.exists(f"{default_db_file}"):
-            logger.error("IP Database missing from wr-sbom-dl repo")
-            sys.exit(1)
+    if not os.path.exists(f"{sqlite_db_files}"):
+        logger.error("IP Database dumps files missing from wr-sbom-dl repo")
+        sys.exit(1)
 
-        if not os.path.exists(os.path.dirname(cached_db_file)):
-            os.makedirs(os.path.dirname(cached_db_file))
-        os.system(f"xzcat {default_db_file} > {cached_db_file}")
+    if args.db_file == cached_db_file:
+        cached_db_dir = os.path.dirname(cached_db_file)
+        rcpl = 1
+        if os.path.exists(cached_db_dir):
+            if os.path.exists(f"{cached_db_dir}/.last_rcpl"):
+                with open(f"{cached_db_dir}/.last_rcpl", "r") as rcpl_file:
+                    rcpl = int(rcpl_file.readline())
+        else:
+            os.makedirs(cached_db_dir)
+        
+        # Check for the next RCPL Dump file
+        rcpl_dump_file = f"{sqlite_db_files}/rcpl-{rcpl+1:04}.dump.xz"
+        if os.path.exists(rcpl_dump_file):
+            try:
+                os.rename(f"{cached_db_file}", f"{cached_db_file}_bkup")
+            except:
+                pass
+            try:
+                os.remove(f"{cached_db_dir}/.sql_restore")
+            except:
+                pass
+            rcpl = 1
+            while True:
+                rcpl_dump_file = f"{sqlite_db_files}/rcpl-{rcpl:04}.dump.xz"
+                if os.path.exists(rcpl_dump_file):
+                    print(f"Building {cached_db_file} from {rcpl_dump_file}")
+                    os.system(f"xzcat {rcpl_dump_file} >> {cached_db_dir}/.sql_restore")
+                    rcpl += 1
+                else:
+                    break
+                
+            os.system(f"echo 'COMMIT;' >> {cached_db_dir}/.sql_restore")
+            os.system(f"sqlite3 {cached_db_file} < {cached_db_dir}/.sql_restore")
+            os.remove(f"{cached_db_dir}/.sql_restore")
+            with open(f"{cached_db_dir}/.last_rcpl", "w") as rcpl_file:
+                rcpl_file.writelines(f"{rcpl-1:04}\n")
+        else:
+            print(f"{cached_db_file} is current for RCPL {rcpl:04}")
 
-    if not os.path.exists(f"{cached_db_file}"):
-        logger.error(f"{cached_db_file} Database missing")
+    if not os.path.exists(f"{args.db_file}"):
+        logger.error(f"{args.db_file} Database missing")
         sys.exit(1)
 
     db_conn = create_connection(args.db_file)
