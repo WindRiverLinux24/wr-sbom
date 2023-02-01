@@ -529,7 +529,7 @@ def parse_relationship(rel):
 
     # A bit of preprocessing, setup and logging before parsing
     parse_logs[package_name] = {}
-    logger.info(f"Parsing {len(parse_logs.keys())} of {total} {package_name}...")
+    logger.debug(f"Parsing {len(parse_logs.keys())} of {total} {package_name}...")
     start = time.time()
 
     ## Parse package and write spdx file
@@ -591,8 +591,12 @@ def main():
         logger.setLevel(logging.ERROR)
 
     with bb.tinfoil.Tinfoil() as tinfoil:
-        tinfoil.logger.setLevel(logger.getEffectiveLevel())
-        tinfoil.prepare()
+        if args.debug:
+            tinfoil.logger.setLevel(logger.getEffectiveLevel())
+            tinfoil.prepare()
+        else:
+            tinfoil.logger.setLevel(logging.ERROR)
+            tinfoil.prepare(quiet=1)
 
         deploy_dir_image = tinfoil.config_data.getVar('DEPLOY_DIR_IMAGE')
         deploy_dir_spdx = tinfoil.config_data.getVar('DEPLOY_DIR_SPDX')
