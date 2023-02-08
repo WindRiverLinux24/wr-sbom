@@ -132,7 +132,7 @@ def write_license_copyright(sha, sbom_fp, spdx_id):
 
         copyright = row[4].rstrip('\r\n')
         sbom_fp.write(f"FileCopyrightText: <text> {copyright} </text>\n")
-        copyright = f"FileCopyrightText: <text> {copyright} </text>\n"
+        copyright = f"{copyright}"
         
         # Write Packaged File's LicenseInfo and CopyRight Texts to centeral buffer
         # print(spdx_id)
@@ -376,11 +376,12 @@ def collate_license_and_copyright(file_data, sbom_fp, license_copyright_buffer=N
         sbom_fp.write(f"LicenseInfoInFile: {file_license}\n")
     
     # Write Copyright Text to file
+    sbom_fp.write(f"FileCopyrightText: <text>\n")
     for file_cr in list(set(copyrights)):
-        file_cr = file_cr.replace("FileCopyrightText:", "").strip()
         if file_cr == "<text> NOASSERTION </text>" and "NOASSERTION" in set(copyrights):
             continue
-        sbom_fp.write(f"FileCopyrightText: {file_cr}\n")
+        sbom_fp.write(f"{file_cr}\n")
+    sbom_fp.write(f"</text>\n")
     
 def find_source_hash(json_stanza, relationship, pkg_name, sbom_fp):
     spdx_id = relationship['relatedSpdxElement']
