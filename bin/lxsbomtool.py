@@ -639,12 +639,11 @@ def main():
     total_time = time.time()
 
     # Load image spdx json and relationships list
-    machinearch = machine_arch
-    if not os.path.exists(f"{deploy_dir_image}/{args.image}-{machinearch}.spdx.json"):
-        machinearch = machine_arch.replace('_', '-')
+    if not os.path.exists(f"{deploy_dir_image}/{args.image}-{machine_arch}.spdx.json"):
+        machine_arch = machine_arch.replace('_', '-')
 
     try:
-        image_fp = open(f"{deploy_dir_image}/{args.image}-{machinearch}.spdx.json")
+        image_fp = open(f"{deploy_dir_image}/{args.image}-{machine_arch}.spdx.json")
         image_json = json.load(image_fp)
     except Error as e:
         logger.error(e)
@@ -652,7 +651,7 @@ def main():
 
     relationships_list = list(filter(lambda x: x["relationshipType"] == "CONTAINS", image_json["relationships"]))
     # Load the index spdx json to translate externalRefs
-    index_fp = open(f"{deploy_dir_image}/{args.image}-{machinearch}.spdx.index.json")
+    index_fp = open(f"{deploy_dir_image}/{args.image}-{machine_arch}.spdx.index.json")
     index_json = json.load(index_fp)
 
     # check for the db_file, create sqlite3 file if needed
