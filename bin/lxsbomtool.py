@@ -550,9 +550,6 @@ def parse_package(pkg_json, pkg, pkg_relationship, sbom_fp):
 
 
 def parse_relationship(rel):
-    global succeeded
-    global failed
-
     # Find filename to parse
     filename, spdx_ref = map_json_from_document_ref(image_json["externalDocumentRefs"], rel["relatedSpdxElement"])
     package_name = filename.split('.spdx.json')[0]
@@ -565,6 +562,8 @@ def parse_relationship(rel):
     logger.debug(f"Parsing {len(parse_logs.keys())} of {total} {package_name}...")
     start = time.time()
 
+    succeeded = False
+
     # Parse package and write spdx file
     try:
         with open(f"{sbom_dir}/{package_name}.spdx", "w") as sbom_fp:
@@ -574,7 +573,7 @@ def parse_relationship(rel):
                 write_creation_info(sbom_fp, pkg_json)
                 parse_package(pkg_json, pkg_json['packages'][0]['SPDXID'], rel, sbom_fp)
             write_licenserefs(sbom_fp)
-            succeeded += 1
+            succeeded = True
             parse_logs[package_name]["parse_status"] = "succeeded"
     except KeyboardInterrupt:
         logger.warn("Caught KeyboardInterrupt")
@@ -582,11 +581,11 @@ def parse_relationship(rel):
     except Exception as e:
         logger.error(f"ERROR While parsing {package_name}")
         logger.error(f"Exception: {e}")
-        failed += 1
         parse_logs[package_name]["parse_status"] = "failed"
         parse_logs[package_name]["traceback"] = traceback.format_exc()
     finally:
         parse_logs[package_name]["time_elapsed"] = time.time() - start
+        return succeeded
 
 
 def main():
@@ -600,8 +599,6 @@ def main():
     global sbom_dir
 
     global parse_logs
-    global succeeded
-    global failed
     global total
     global args
 
@@ -639,11 +636,12 @@ def main():
     total_time = time.time()
 
     # Load image spdx json and relationships list
-    if not os.path.exists(f"{deploy_dir_image}/{args.image}-{machine_arch}.spdx.json"):
-        machine_arch = machine_arch.replace('_', '-')
+    machinearch = machine_arch
+    if not os.path.exists(f"{deploy_dir_image}/{args.image}-{machinearch}.spdx.json"):
+        machinearch = machine_arch.replace('_', '-')
 
     try:
-        image_fp = open(f"{deploy_dir_image}/{args.image}-{machine_arch}.spdx.json")
+        image_fp = open(f"{deploy_dir_image}/{args.image}-{machinearch}.spdx.json")
         image_json = json.load(image_fp)
     except Error as e:
         logger.error(e)
@@ -651,7 +649,7 @@ def main():
 
     relationships_list = list(filter(lambda x: x["relationshipType"] == "CONTAINS", image_json["relationships"]))
     # Load the index spdx json to translate externalRefs
-    index_fp = open(f"{deploy_dir_image}/{args.image}-{machine_arch}.spdx.index.json")
+    index_fp = open(f"{deploy_dir_image}/{args.image}-{machinearch}.spdx.index.json")
     index_json = json.load(index_fp)
 
     # check for the db_file, create sqlite3 file if needed
@@ -672,6 +670,8 @@ def main():
         # Check for the next RCPL Dump file
         rcpl_dump_file = f"{sqlite_db_files}/rcpl-{rcpl+1:04}.dump.xz"
         if os.path.exists(rcpl_dump_file):
+            # If there is any next RCPL dump file, rebuild the database
+            # from scratch, deleting any existing database files
             try:
                 os.rename(f"{cached_db_file}", f"{cached_db_file}_bkup")
             except:
@@ -680,6 +680,7 @@ def main():
                 os.remove(f"{cached_db_dir}/.sql_restore")
             except:
                 pass
+            # Starting from RCPL 0001, dump the SQL from each RCPL into .sql_restore
             rcpl = 1
             while True:
                 rcpl_dump_file = f"{sqlite_db_files}/rcpl-{rcpl:04}.dump.xz"
@@ -690,6 +691,7 @@ def main():
                 else:
                     break
 
+            # Create the database file from .sql_restore and record the last RCPL
             os.system(f"echo 'COMMIT;' >> {cached_db_dir}/.sql_restore")
             os.system(f"sqlite3 {cached_db_file} < {cached_db_dir}/.sql_restore")
             os.remove(f"{cached_db_dir}/.sql_restore")
@@ -724,7 +726,12 @@ def main():
 
     # Parse each package to a single *.spdx file (based on the image relationships)
     for rel in relationships_list[::-1]:
-        parse_relationship(rel)
+        success = parse_relationship(rel)
+        if success is not None:
+            if success:
+                succeeded += 1
+            else:
+                failed += 1
 
         # Limit package parsing
         if(args.limit != 0 and len(parse_logs.keys()) >= args.limit):
