@@ -108,7 +108,7 @@ def create_annotation(ref, note):
     return annotation
 
 
-def write_license_copyright(sha, sbom_fp, spdx_id):
+def write_license_copyright(sha, sbom_fp, spdx_id, db_conn):
     cur = db_conn.cursor()
     cur.execute(f"SELECT * FROM File WHERE FileChecksum='{sha}'")
     rows = cur.fetchall()
@@ -161,7 +161,7 @@ def write_license_copyright(sha, sbom_fp, spdx_id):
     return False
 
 
-def write_licenserefs(sbom_fp):
+def write_licenserefs(sbom_fp, db_conn):
     tRef = time.time()
     # CREATE TABLE LicenseReference (LicenseID TEXT NOT NULL PRIMARY KEY, ExtractedText TEXT NOT NULL, LicenseName TEXT NOT NULL DEFAULT 'NOASSERTION', LicenseCrossReference TEXT, LicenseComment TEXT);
     sbom_fp.write("\n\n##-----------------------------\n## Other License Information\n##-----------------------------\n")
@@ -277,7 +277,7 @@ def write_pkg_spdx(pkg, relationship, sbom_fp):
             ]
 
 
-def write_file_spdx(file_data, sbom_fp, packaged=False):
+def write_file_spdx(file_data, sbom_fp, db_conn, packaged=False):
     t = time.time()
 
     if packaged:
@@ -293,7 +293,7 @@ def write_file_spdx(file_data, sbom_fp, packaged=False):
         sbom_fp.write(f"FileChecksum: {file_data['checksums'][1]['algorithm']}:{file_data['checksums'][1]['checksumValue']}\n")
 
         spdx_id = file_data['SPDXID']
-        if not write_license_copyright(f"{file_data['checksums'][1]['algorithm']}:{file_data['checksums'][1]['checksumValue']}", sbom_fp, spdx_id):
+        if not write_license_copyright(f"{file_data['checksums'][1]['algorithm']}:{file_data['checksums'][1]['checksumValue']}", sbom_fp, spdx_id, db_conn):
             for file_type in file_data['fileTypes']:
                 sbom_fp.write(f"FileType: {file_type}\n")
             sbom_fp.write(f"LicenseConcluded: {file_data['licenseConcluded']}\n")
@@ -403,7 +403,7 @@ def collate_license_and_copyright(file_data, sbom_fp, license_copyright_buffer=N
     sbom_fp.write(f"</text>\n")
 
 
-def find_source_hash(json_stanza, relationship, pkg_name, sbom_fp):
+def find_source_hash(json_stanza, relationship, pkg_name, sbom_fp, db_conn):
     spdx_id = relationship['relatedSpdxElement']
     if "NOASSERTION" in spdx_id:
         return False
@@ -411,7 +411,7 @@ def find_source_hash(json_stanza, relationship, pkg_name, sbom_fp):
     recipe_name, spdx_ref = map_json_from_document_ref(json_stanza['externalDocumentRefs'], spdx_id)
     if spdx_id.split(':')[1] in source_file_lookup:
         logger.debug("File already looked up, using cached data")
-        write_file_spdx(source_file_lookup[spdx_id.split(":")[1]], sbom_fp)
+        write_file_spdx(source_file_lookup[spdx_id.split(":")[1]], sbom_fp, db_conn)
         return True
 
     # Load recipe file, from file or lookup dictionary if possible
@@ -431,7 +431,7 @@ def find_source_hash(json_stanza, relationship, pkg_name, sbom_fp):
     for src_file in recipe_json['files']:
         if src_file['SPDXID'] == spdx_id.split(':')[1]:
             source_file_lookup[spdx_id.split(':')[1]] = src_file
-            write_file_spdx(src_file, sbom_fp)
+            write_file_spdx(src_file, sbom_fp, db_conn)
             break
     return True
 
@@ -453,7 +453,7 @@ def write_package_relationships(relationships, sbom_fp):
         sbom_fp.write(rel)
 
 
-def parse_package(pkg_json, pkg, pkg_relationship, sbom_fp):
+def parse_package(pkg_json, pkg, pkg_relationship, sbom_fp, db_conn):
     master_parsed_rel_list = []
 
     # I think each package spdx file will only contain a single package but
@@ -495,7 +495,7 @@ def parse_package(pkg_json, pkg, pkg_relationship, sbom_fp):
                             # Loads source files' license and copyright data into the buffer lookup table (license_copyright_buffer).
                             # Since no output needed from this call, the write file pointer redirects outputs to /dev/null.
                             with open("/dev/null", "w") as wf_null:
-                                find_source_hash(pkg_json, relationship, spdx_pkg['name'], wf_null)
+                                find_source_hash(pkg_json, relationship, spdx_pkg['name'], wf_null, db_conn)
                             logTimedEvent("find_source_hash on " + relationship["relatedSpdxElement"], time_temp)
 
     # Generate two relationship lookup tables:
@@ -543,13 +543,13 @@ def parse_package(pkg_json, pkg, pkg_relationship, sbom_fp):
                     # Identify and output the source files
                     for relationship in parsed_rel_list:
                         time_temp = time.time()
-                        find_source_hash(pkg_json, relationship, spdx_pkg['name'], sbom_fp)
+                        find_source_hash(pkg_json, relationship, spdx_pkg['name'], sbom_fp, db_conn)
                         logTimedEvent("find_source_hash on " + relationship["relatedSpdxElement"], time_temp)
 
     write_package_relationships(master_parsed_rel_list, sbom_fp)
 
 
-def parse_relationship(rel, total, parse_logs):
+def parse_relationship(rel, total, parse_logs, db_conn):
     # Find filename to parse
     filename, spdx_ref = map_json_from_document_ref(image_json["externalDocumentRefs"], rel["relatedSpdxElement"])
     package_name = filename.split('.spdx.json')[0]
@@ -571,8 +571,8 @@ def parse_relationship(rel, total, parse_logs):
             with open(f"{deploy_dir_spdx}/packages/{filename}") as pkg_fp:
                 pkg_json = json.load(pkg_fp)
                 write_creation_info(sbom_fp, pkg_json)
-                parse_package(pkg_json, pkg_json['packages'][0]['SPDXID'], rel, sbom_fp)
-            write_licenserefs(sbom_fp)
+                parse_package(pkg_json, pkg_json['packages'][0]['SPDXID'], rel, sbom_fp, db_conn)
+            write_licenserefs(sbom_fp, db_conn)
             success = True
             parse_logs[package_name]["parse_status"] = "succeeded"
     except KeyboardInterrupt:
@@ -591,7 +591,6 @@ def parse_relationship(rel, total, parse_logs):
 def main():
     from pathlib import Path
 
-    global db_conn
     global index_json
     global image_json
     global deploy_dir_spdx
@@ -725,7 +724,7 @@ def main():
 
     # Parse each package to a single *.spdx file (based on the image relationships)
     for rel in relationships_list[::-1]:
-        success = parse_relationship(rel, total, parse_logs)
+        success = parse_relationship(rel, total, parse_logs, db_conn)
         if success is not None:
             if success:
                 succeeded += 1
