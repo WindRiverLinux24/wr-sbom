@@ -549,7 +549,7 @@ def parse_package(pkg_json, pkg, pkg_relationship, sbom_fp):
     write_package_relationships(master_parsed_rel_list, sbom_fp)
 
 
-def parse_relationship(rel, total):
+def parse_relationship(rel, total, parse_logs):
     # Find filename to parse
     filename, spdx_ref = map_json_from_document_ref(image_json["externalDocumentRefs"], rel["relatedSpdxElement"])
     package_name = filename.split('.spdx.json')[0]
@@ -598,7 +598,6 @@ def main():
     global deploy_dir_image
     global sbom_dir
 
-    global parse_logs
     global args
 
     # Set up argument parser
@@ -726,7 +725,7 @@ def main():
 
     # Parse each package to a single *.spdx file (based on the image relationships)
     for rel in relationships_list[::-1]:
-        success = parse_relationship(rel, total)
+        success = parse_relationship(rel, total, parse_logs)
         if success is not None:
             if success:
                 succeeded += 1
