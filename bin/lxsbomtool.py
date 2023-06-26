@@ -562,7 +562,7 @@ def parse_relationship(rel):
     logger.debug(f"Parsing {len(parse_logs.keys())} of {total} {package_name}...")
     start = time.time()
 
-    succeeded = False
+    success = False
 
     # Parse package and write spdx file
     try:
@@ -573,7 +573,7 @@ def parse_relationship(rel):
                 write_creation_info(sbom_fp, pkg_json)
                 parse_package(pkg_json, pkg_json['packages'][0]['SPDXID'], rel, sbom_fp)
             write_licenserefs(sbom_fp)
-            succeeded = True
+            success = True
             parse_logs[package_name]["parse_status"] = "succeeded"
     except KeyboardInterrupt:
         logger.warn("Caught KeyboardInterrupt")
@@ -585,7 +585,7 @@ def parse_relationship(rel):
         parse_logs[package_name]["traceback"] = traceback.format_exc()
     finally:
         parse_logs[package_name]["time_elapsed"] = time.time() - start
-        return succeeded
+        return success
 
 
 def main():
