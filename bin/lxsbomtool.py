@@ -184,7 +184,7 @@ def write_licenserefs(sbom_fp, db_conn, args_time):
     logTimedEvent("write_licenserefs", tRef, args_time)
 
 
-def map_json_from_document_ref(image_json, document_ref):
+def map_json_from_document_ref(image_json, document_ref, index_json):
     """Starting with a document_ref like DocumentRef-openssh-ssh:SPDXRef-Package-openssh-ssh
     go to the image spdx and lookup the externalDocumentID.
 
@@ -403,12 +403,12 @@ def collate_license_and_copyright(file_data, sbom_fp, license_copyright_buffer=N
     sbom_fp.write(f"</text>\n")
 
 
-def find_source_hash(json_stanza, relationship, pkg_name, sbom_fp, db_conn, args_time):
+def find_source_hash(json_stanza, relationship, pkg_name, sbom_fp, db_conn, args_time, index_json):
     spdx_id = relationship['relatedSpdxElement']
     if "NOASSERTION" in spdx_id:
         return False
 
-    recipe_name, spdx_ref = map_json_from_document_ref(json_stanza['externalDocumentRefs'], spdx_id)
+    recipe_name, spdx_ref = map_json_from_document_ref(json_stanza['externalDocumentRefs'], spdx_id, index_json)
     if spdx_id.split(':')[1] in source_file_lookup:
         logger.debug("File already looked up, using cached data")
         write_file_spdx(source_file_lookup[spdx_id.split(":")[1]], sbom_fp, db_conn, args_time)
@@ -453,7 +453,7 @@ def write_package_relationships(relationships, sbom_fp):
         sbom_fp.write(rel)
 
 
-def parse_package(pkg_json, pkg, pkg_relationship, sbom_fp, db_conn, args_time):
+def parse_package(pkg_json, pkg, pkg_relationship, sbom_fp, db_conn, args_time, index_json):
     master_parsed_rel_list = []
 
     # I think each package spdx file will only contain a single package but
@@ -495,7 +495,7 @@ def parse_package(pkg_json, pkg, pkg_relationship, sbom_fp, db_conn, args_time):
                             # Loads source files' license and copyright data into the buffer lookup table (license_copyright_buffer).
                             # Since no output needed from this call, the write file pointer redirects outputs to /dev/null.
                             with open("/dev/null", "w") as wf_null:
-                                find_source_hash(pkg_json, relationship, spdx_pkg['name'], wf_null, db_conn, args_time)
+                                find_source_hash(pkg_json, relationship, spdx_pkg['name'], wf_null, db_conn, args_time, index_json)
                             logTimedEvent("find_source_hash on " + relationship["relatedSpdxElement"], time_temp, args_time)
 
     # Generate two relationship lookup tables:
@@ -543,15 +543,15 @@ def parse_package(pkg_json, pkg, pkg_relationship, sbom_fp, db_conn, args_time):
                     # Identify and output the source files
                     for relationship in parsed_rel_list:
                         time_temp = time.time()
-                        find_source_hash(pkg_json, relationship, spdx_pkg['name'], sbom_fp, db_conn, args_time)
+                        find_source_hash(pkg_json, relationship, spdx_pkg['name'], sbom_fp, db_conn, args_time, index_json)
                         logTimedEvent("find_source_hash on " + relationship["relatedSpdxElement"], time_temp, args_time)
 
     write_package_relationships(master_parsed_rel_list, sbom_fp)
 
 
-def parse_relationship(rel, total, parse_logs, db_conn, args_packages, args_image, args_time):
+def parse_relationship(rel, total, parse_logs, db_conn, args_packages, args_image, args_time, index_json):
     # Find filename to parse
-    filename, spdx_ref = map_json_from_document_ref(image_json["externalDocumentRefs"], rel["relatedSpdxElement"])
+    filename, spdx_ref = map_json_from_document_ref(image_json["externalDocumentRefs"], rel["relatedSpdxElement"], index_json)
     package_name = filename.split('.spdx.json')[0]
 
     if args_packages and (package_name not in args_packages):
@@ -571,7 +571,7 @@ def parse_relationship(rel, total, parse_logs, db_conn, args_packages, args_imag
             with open(f"{deploy_dir_spdx}/packages/{filename}") as pkg_fp:
                 pkg_json = json.load(pkg_fp)
                 write_creation_info(sbom_fp, pkg_json)
-                parse_package(pkg_json, pkg_json['packages'][0]['SPDXID'], rel, sbom_fp, db_conn, args_time)
+                parse_package(pkg_json, pkg_json['packages'][0]['SPDXID'], rel, sbom_fp, db_conn, args_time, index_json)
             write_licenserefs(sbom_fp, db_conn, args_time)
             success = True
             parse_logs[package_name]["parse_status"] = "succeeded"
@@ -591,7 +591,6 @@ def parse_relationship(rel, total, parse_logs, db_conn, args_packages, args_imag
 def main():
     from pathlib import Path
 
-    global index_json
     global image_json
     global deploy_dir_spdx
     global deploy_dir_image
@@ -722,7 +721,7 @@ def main():
 
     # Parse each package to a single *.spdx file (based on the image relationships)
     for rel in relationships_list[::-1]:
-        success = parse_relationship(rel, total, parse_logs, db_conn, args.packages, args.image, args.time)
+        success = parse_relationship(rel, total, parse_logs, db_conn, args.packages, args.image, args.time, index_json)
         if success is not None:
             if success:
                 succeeded += 1
