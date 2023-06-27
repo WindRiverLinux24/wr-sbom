@@ -75,8 +75,8 @@ recipe_file_lookup = {}
 source_file_lookup = {}
 
 
-def logTimedEvent(task_name, start_time):
-    if(args.time):
+def logTimedEvent(task_name, start_time, args_time):
+    if(args_time):
         logger.debug(f"Completed subtask {task_name} in {time.time()-start_time}s")
     else:
         logger.debug(f"Completed substask {task_name}")
@@ -161,7 +161,7 @@ def write_license_copyright(sha, sbom_fp, spdx_id, db_conn):
     return False
 
 
-def write_licenserefs(sbom_fp, db_conn):
+def write_licenserefs(sbom_fp, db_conn, args_time):
     tRef = time.time()
     # CREATE TABLE LicenseReference (LicenseID TEXT NOT NULL PRIMARY KEY, ExtractedText TEXT NOT NULL, LicenseName TEXT NOT NULL DEFAULT 'NOASSERTION', LicenseCrossReference TEXT, LicenseComment TEXT);
     sbom_fp.write("\n\n##-----------------------------\n## Other License Information\n##-----------------------------\n")
@@ -181,7 +181,7 @@ def write_licenserefs(sbom_fp, db_conn):
             sbom_fp.write(f"{create_annotation(licid, 'LicenseRef Data not available')}")
 
     license_refs.clear()
-    logTimedEvent("write_licenserefs", tRef)
+    logTimedEvent("write_licenserefs", tRef, args_time)
 
 
 def map_json_from_document_ref(image_json, document_ref):
@@ -277,7 +277,7 @@ def write_pkg_spdx(pkg, relationship, sbom_fp):
             ]
 
 
-def write_file_spdx(file_data, sbom_fp, db_conn, packaged=False):
+def write_file_spdx(file_data, sbom_fp, db_conn, args_time, packaged=False):
     t = time.time()
 
     if packaged:
@@ -307,7 +307,7 @@ def write_file_spdx(file_data, sbom_fp, db_conn, packaged=False):
                 comment = f"No IP Data for {file_data['fileName']} in {file_data['SPDXID']}"
                 sbom_fp.write(f"{create_annotation(file_data['SPDXID'], comment)}")
 
-    logTimedEvent("write_file_spdx", t)
+    logTimedEvent("write_file_spdx", t, args_time)
 
 
 def collate_license_and_copyright(file_data, sbom_fp, license_copyright_buffer=None, relationship_tables=None):
@@ -403,7 +403,7 @@ def collate_license_and_copyright(file_data, sbom_fp, license_copyright_buffer=N
     sbom_fp.write(f"</text>\n")
 
 
-def find_source_hash(json_stanza, relationship, pkg_name, sbom_fp, db_conn):
+def find_source_hash(json_stanza, relationship, pkg_name, sbom_fp, db_conn, args_time):
     spdx_id = relationship['relatedSpdxElement']
     if "NOASSERTION" in spdx_id:
         return False
@@ -411,7 +411,7 @@ def find_source_hash(json_stanza, relationship, pkg_name, sbom_fp, db_conn):
     recipe_name, spdx_ref = map_json_from_document_ref(json_stanza['externalDocumentRefs'], spdx_id)
     if spdx_id.split(':')[1] in source_file_lookup:
         logger.debug("File already looked up, using cached data")
-        write_file_spdx(source_file_lookup[spdx_id.split(":")[1]], sbom_fp, db_conn)
+        write_file_spdx(source_file_lookup[spdx_id.split(":")[1]], sbom_fp, db_conn, args_time)
         return True
 
     # Load recipe file, from file or lookup dictionary if possible
@@ -425,13 +425,13 @@ def find_source_hash(json_stanza, relationship, pkg_name, sbom_fp, db_conn):
             tRec = time.time()
             recipe_json = json.load(fp)
             recipe_file_lookup[recipe_name] = recipe_json
-            logTimedEvent("load recipe JSON", tRec)
+            logTimedEvent("load recipe JSON", tRec, args_time)
 
     # Write source file entry from recipe
     for src_file in recipe_json['files']:
         if src_file['SPDXID'] == spdx_id.split(':')[1]:
             source_file_lookup[spdx_id.split(':')[1]] = src_file
-            write_file_spdx(src_file, sbom_fp, db_conn)
+            write_file_spdx(src_file, sbom_fp, db_conn, args_time)
             break
     return True
 
@@ -453,7 +453,7 @@ def write_package_relationships(relationships, sbom_fp):
         sbom_fp.write(rel)
 
 
-def parse_package(pkg_json, pkg, pkg_relationship, sbom_fp, db_conn):
+def parse_package(pkg_json, pkg, pkg_relationship, sbom_fp, db_conn, args_time):
     master_parsed_rel_list = []
 
     # I think each package spdx file will only contain a single package but
@@ -495,8 +495,8 @@ def parse_package(pkg_json, pkg, pkg_relationship, sbom_fp, db_conn):
                             # Loads source files' license and copyright data into the buffer lookup table (license_copyright_buffer).
                             # Since no output needed from this call, the write file pointer redirects outputs to /dev/null.
                             with open("/dev/null", "w") as wf_null:
-                                find_source_hash(pkg_json, relationship, spdx_pkg['name'], wf_null, db_conn)
-                            logTimedEvent("find_source_hash on " + relationship["relatedSpdxElement"], time_temp)
+                                find_source_hash(pkg_json, relationship, spdx_pkg['name'], wf_null, db_conn, args_time)
+                            logTimedEvent("find_source_hash on " + relationship["relatedSpdxElement"], time_temp, args_time)
 
     # Generate two relationship lookup tables:
     #   1. GENERATED_FROM
@@ -543,18 +543,18 @@ def parse_package(pkg_json, pkg, pkg_relationship, sbom_fp, db_conn):
                     # Identify and output the source files
                     for relationship in parsed_rel_list:
                         time_temp = time.time()
-                        find_source_hash(pkg_json, relationship, spdx_pkg['name'], sbom_fp, db_conn)
-                        logTimedEvent("find_source_hash on " + relationship["relatedSpdxElement"], time_temp)
+                        find_source_hash(pkg_json, relationship, spdx_pkg['name'], sbom_fp, db_conn, args_time)
+                        logTimedEvent("find_source_hash on " + relationship["relatedSpdxElement"], time_temp, args_time)
 
     write_package_relationships(master_parsed_rel_list, sbom_fp)
 
 
-def parse_relationship(rel, total, parse_logs, db_conn):
+def parse_relationship(rel, total, parse_logs, db_conn, args_packages, args_image, args_time):
     # Find filename to parse
     filename, spdx_ref = map_json_from_document_ref(image_json["externalDocumentRefs"], rel["relatedSpdxElement"])
     package_name = filename.split('.spdx.json')[0]
 
-    if args.packages and (package_name not in args.packages):
+    if args_packages and (package_name not in args_packages):
         return
 
     # A bit of preprocessing, setup and logging before parsing
@@ -567,12 +567,12 @@ def parse_relationship(rel, total, parse_logs, db_conn):
     # Parse package and write spdx file
     try:
         with open(f"{sbom_dir}/{package_name}.spdx", "w") as sbom_fp:
-            write_document_header(sbom_fp, args.image)
+            write_document_header(sbom_fp, args_image)
             with open(f"{deploy_dir_spdx}/packages/{filename}") as pkg_fp:
                 pkg_json = json.load(pkg_fp)
                 write_creation_info(sbom_fp, pkg_json)
-                parse_package(pkg_json, pkg_json['packages'][0]['SPDXID'], rel, sbom_fp, db_conn)
-            write_licenserefs(sbom_fp, db_conn)
+                parse_package(pkg_json, pkg_json['packages'][0]['SPDXID'], rel, sbom_fp, db_conn, args_time)
+            write_licenserefs(sbom_fp, db_conn, args_time)
             success = True
             parse_logs[package_name]["parse_status"] = "succeeded"
     except KeyboardInterrupt:
@@ -596,8 +596,6 @@ def main():
     global deploy_dir_spdx
     global deploy_dir_image
     global sbom_dir
-
-    global args
 
     # Set up argument parser
     parser = argparse_oe.ArgumentParser(description="WindRiver SBOM Generation Tool")
@@ -724,7 +722,7 @@ def main():
 
     # Parse each package to a single *.spdx file (based on the image relationships)
     for rel in relationships_list[::-1]:
-        success = parse_relationship(rel, total, parse_logs, db_conn)
+        success = parse_relationship(rel, total, parse_logs, db_conn, args.packages, args.image, args.time)
         if success is not None:
             if success:
                 succeeded += 1
