@@ -549,7 +549,7 @@ def parse_package(pkg_json, pkg, pkg_relationship, sbom_fp, db_conn, args_time, 
     write_package_relationships(master_parsed_rel_list, sbom_fp)
 
 
-def parse_relationship(rel, total, parse_logs, db_conn, args_packages, args_image, args_time, index_json):
+def parse_relationship(rel, total, parse_logs, db_conn, args_packages, args_image, args_time, index_json, image_json):
     # Find filename to parse
     filename, spdx_ref = map_json_from_document_ref(image_json["externalDocumentRefs"], rel["relatedSpdxElement"], index_json)
     package_name = filename.split('.spdx.json')[0]
@@ -591,7 +591,6 @@ def parse_relationship(rel, total, parse_logs, db_conn, args_packages, args_imag
 def main():
     from pathlib import Path
 
-    global image_json
     global deploy_dir_spdx
     global deploy_dir_image
     global sbom_dir
@@ -721,7 +720,7 @@ def main():
 
     # Parse each package to a single *.spdx file (based on the image relationships)
     for rel in relationships_list[::-1]:
-        success = parse_relationship(rel, total, parse_logs, db_conn, args.packages, args.image, args.time, index_json)
+        success = parse_relationship(rel, total, parse_logs, db_conn, args.packages, args.image, args.time, index_json, image_json)
         if success is not None:
             if success:
                 succeeded += 1
