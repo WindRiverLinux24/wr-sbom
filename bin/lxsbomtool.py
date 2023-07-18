@@ -50,7 +50,7 @@ import oe.recipeutils
 
 def logTimedEvent(task_name, start_time, args_time, common_args):
     if(args_time):
-        common_args["logger"].DEBug(f"Completed subtask {task_name} in {time.time()-start_time}s")
+        common_args["logger"].debug(f"Completed subtask {task_name} in {time.time()-start_time}s")
     else:
         common_args["logger"].debug(f"Completed substask {task_name}")
 
