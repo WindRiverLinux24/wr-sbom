@@ -50,9 +50,9 @@ import oe.recipeutils
 
 def logTimedEvent(task_name, start_time, args_time, common_args):
     if(args_time):
-        common_args["logger"].debug(f"Completed subtask {task_name} in {time.time()-start_time}s")
+        common_args.getLogger().debug(f"Completed subtask {task_name} in {time.time()-start_time}s")
     else:
-        common_args["logger"].debug(f"Completed substask {task_name}")
+        common_args.getLogger().debug(f"Completed substask {task_name}")
 
 
 def create_connection(db_file, common_args):
@@ -65,7 +65,7 @@ def create_connection(db_file, common_args):
     try:
         conn = sqlite3.connect(db_file, check_same_thread=False)
     except Error as e:
-        common_args["logger"].error(e)
+        common_args.getLogger().error(e)
 
     return conn
 
@@ -96,15 +96,15 @@ def write_license_copyright(sha, sbom_fp, spdx_id, db_conn, common_args):
             license = f"LicenseConcluded: {lic.lstrip().strip()}\n"
             for r in re.split(r"\sAND\s|\sOR\s|\sWITH\s", lic):
                 license = r.lstrip().strip()
-                if "LicenseRef" in license and license not in common_args["license_refs"]:
-                    common_args["license_refs"].append(license)
+                if "LicenseRef" in license and license not in common_args.getLicenseRefs():
+                    common_args.getLicenseRefs().append(license)
 
         for lic in row[3].split(';'):
             sbom_fp.write(f"LicenseInfoInFile: {lic.lstrip().strip()}\n")
             for r in re.split(r"\sAND\s|\sOR\s|\sWITH\s", lic):
                 license = r.lstrip().strip()
-                if "LicenseRef" in license and license not in common_args["license_refs"]:
-                    common_args["license_refs"].append(license)
+                if "LicenseRef" in license and license not in common_args.getLicenseRefs():
+                    common_args.getLicenseRefs().append(license)
 
         copyright = row[4].rstrip('\r\n')
         sbom_fp.write(f"FileCopyrightText: <text> {copyright} </text>\n")
@@ -113,17 +113,17 @@ def write_license_copyright(sha, sbom_fp, spdx_id, db_conn, common_args):
         # Write Packaged File's LicenseInfo and CopyRight Texts to centeral buffer
         # print(spdx_id)
         try:
-            curr = common_args["license_copyright_buffer"][spdx_id]
+            curr = common_args.getLicenseCopyrightBuffer()[spdx_id]
             curr.append(
                 {
                     'licenseInfoInFiles': license,
                     'copyrightText': copyright
                 }
             )
-            common_args["license_copyright_buffer"][spdx_id] = curr
+            common_args.getLicenseCopyrightBuffer()[spdx_id] = curr
 
         except KeyError:
-            common_args["license_copyright_buffer"][spdx_id] = [
+            common_args.getLicenseCopyrightBuffer()[spdx_id] = [
                 {
                     'licenseInfoInFiles': license,
                     'copyrightText': copyright
@@ -139,7 +139,7 @@ def write_licenserefs(sbom_fp, db_conn, args_time, common_args):
     # CREATE TABLE LicenseReference (LicenseID TEXT NOT NULL PRIMARY KEY, ExtractedText TEXT NOT NULL, LicenseName TEXT NOT NULL DEFAULT 'NOASSERTION', LicenseCrossReference TEXT, LicenseComment TEXT);
     sbom_fp.write("\n\n##-----------------------------\n## Other License Information\n##-----------------------------\n")
     cur = db_conn.cursor()
-    for licid in common_args["license_refs"]:
+    for licid in common_args.getLicenseRefs():
         cur.execute(f"SELECT * FROM LicenseReference WHERE LicenseID='{licid}'")
         rows = cur.fetchall()
         for row in rows:
@@ -153,7 +153,7 @@ def write_licenserefs(sbom_fp, db_conn, args_time, common_args):
             sbom_fp.write("\n\n## -----------------Missing License Information ----------------##\n")
             sbom_fp.write(f"{create_annotation(licid, 'LicenseRef Data not available')}")
 
-    common_args["license_refs"].clear()
+    common_args.getLicenseRefs().clear()
     logTimedEvent("write_licenserefs", tRef, args_time, common_args)
 
 
@@ -233,16 +233,16 @@ def write_pkg_spdx(pkg, relationship, sbom_fp, common_args):
     spdx_id = pkg['SPDXID']
     for file_license in pkg['licenseInfoFromFiles']:
         try:
-            curr = common_args["license_copyright_buffer"][spdx_id]
+            curr = common_args.getLicenseCopyrightBuffer()[spdx_id]
             curr.append(
                 {
                     'licenseInfoInFiles': file_license,
                     'copyrightText': "NOASSERTION"
                 }
             )
-            common_args["license_copyright_buffer"][spdx_id] = curr
+            common_args.getLicenseCopyrightBuffer()[spdx_id] = curr
         except KeyError:
-            common_args["license_copyright_buffer"][spdx_id] = [
+            common_args.getLicenseCopyrightBuffer()[spdx_id] = [
                 {
                     'licenseInfoInFiles': file_license,
                     'copyrightText': "NOASSERTION"
@@ -382,28 +382,28 @@ def find_source_hash(json_stanza, relationship, pkg_name, sbom_fp, db_conn, args
         return False
 
     recipe_name, spdx_ref = map_json_from_document_ref(json_stanza['externalDocumentRefs'], spdx_id, index_json)
-    if spdx_id.split(':')[1] in common_args["source_file_lookup"]:
-        common_args["logger"].debug("File already looked up, using cached data")
-        write_file_spdx(common_args["source_file_lookup"][spdx_id.split(":")[1]], sbom_fp, db_conn, args_time, common_args)
+    if spdx_id.split(':')[1] in common_args.getSourceFileLookup():
+        common_args.getLogger().debug("File already looked up, using cached data")
+        write_file_spdx(common_args.getSourceFileLookup()[spdx_id.split(":")[1]], sbom_fp, db_conn, args_time, common_args)
         return True
 
     # Load recipe file, from file or lookup dictionary if possible
     recipe_json = {}
-    if recipe_name in common_args["recipe_file_lookup"]:
-        common_args["logger"].debug('Recipe already looked up, using cached data')
-        recipe_json = common_args["recipe_file_lookup"][recipe_name]
+    if recipe_name in common_args.getRecipeFileLookup():
+        common_args.getLogger().debug('Recipe already looked up, using cached data')
+        recipe_json = common_args.getRecipeFileLookup()[recipe_name]
     else:
         with open(f"{deploy_dir_spdx}/recipes/{recipe_name}") as fp:
-            common_args["logger"].debug(f"Recipe Name {recipe_name}")
+            common_args.getLogger().debug(f"Recipe Name {recipe_name}")
             tRec = time.time()
             recipe_json = json.load(fp)
-            common_args["recipe_file_lookup"][recipe_name] = recipe_json
+            common_args.getRecipeFileLookup()[recipe_name] = recipe_json
             logTimedEvent("load recipe JSON", tRec, args_time, common_args)
 
     # Write source file entry from recipe
     for src_file in recipe_json['files']:
         if src_file['SPDXID'] == spdx_id.split(':')[1]:
-            common_args["source_file_lookup"][spdx_id.split(':')[1]] = src_file
+            common_args.getSourceFileLookup()[spdx_id.split(':')[1]] = src_file
             write_file_spdx(src_file, sbom_fp, db_conn, args_time, common_args)
             break
     return True
@@ -508,7 +508,7 @@ def parse_package(pkg_json, pkg, pkg_relationship, sbom_fp, db_conn, args_time, 
                     # Collate packaged files' licenses and copyrights data Binary and Package level based on relationships.
                     for relationship in pkg_json['relationships']:
                         if spdxElementId in relationship['relatedSpdxElement']:
-                            collate_license_and_copyright(pkg_file, sbom_fp, license_copyright_buffer=common_args["license_copyright_buffer"], relationship_tables=[rela_table_from, rela_table_contain])
+                            collate_license_and_copyright(pkg_file, sbom_fp, license_copyright_buffer=common_args.getLicenseCopyrightBuffer(), relationship_tables=[rela_table_from, rela_table_contain])
 
                     spdxElementId = pkg_file['SPDXID']
                     parsed_rel_list = [rel for rel in pkg_json['relationships'] if spdxElementId in rel['spdxElementId']]
@@ -692,14 +692,31 @@ def main():
         logger.error(f"{args.db_file} Database missing")
         sys.exit(1)
 
+    class CommonArgs:
+        def __init__(self, logger, license_copyright_buffer, license_refs, recipe_file_lookup, source_file_lookup):
+            self._logger = logger
+            self._license_copyright_buffer = license_copyright_buffer
+            self._license_refs = license_refs
+            self._recipe_file_lookup = recipe_file_lookup
+            self._source_file_lookup = source_file_lookup
+
+        def getLogger(self):
+            return self._logger
+
+        def getLicenseCopyrightBuffer(self):
+            return self._license_copyright_buffer
+
+        def getLicenseRefs(self):
+            return self._license_refs
+
+        def getRecipeFileLookup(self):
+            return self._recipe_file_lookup
+
+        def getSourceFileLookup(self):
+            return self._source_file_lookup
+
     # Initialize common function arguments
-    common_args = {
-        "logger": logger,
-        "license_copyright_buffer": license_copyright_buffer,
-        "license_refs": license_refs,
-        "recipe_file_lookup": recipe_file_lookup,
-        "source_file_lookup": source_file_lookup
-    }
+    common_args = CommonArgs(logger, license_copyright_buffer, license_refs, recipe_file_lookup, source_file_lookup)
 
     db_conn = create_connection(args.db_file, common_args)
 
@@ -736,10 +753,10 @@ def main():
             break
 
     # Output file generation report
-    common_args["logger"].info("----------SPDX File Generation Complete----------")
-    common_args["logger"].info(f"{succeeded} packages parsed successfully")
-    common_args["logger"].info(f"{failed} packages failed to parse")
-    common_args["logger"].info(f"{time.time()-total_time}s taken")
+    common_args.getLogger().info("----------SPDX File Generation Complete----------")
+    common_args.getLogger().info(f"{succeeded} packages parsed successfully")
+    common_args.getLogger().info(f"{failed} packages failed to parse")
+    common_args.getLogger().info(f"{time.time()-total_time}s taken")
 
     # Dump parse logs to a json file
     with open(f"{sbom_dir}/parse_logs.json", "w") as plg_fp:
