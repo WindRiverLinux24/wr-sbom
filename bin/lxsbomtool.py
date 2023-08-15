@@ -716,29 +716,6 @@ def main():
         logger.error(f"{args.db_file} Database missing")
         sys.exit(1)
 
-    class CommonArgs:
-        def __init__(self, logger, license_copyright_buffer, license_refs, recipe_file_lookup, source_file_lookup):
-            self._logger = logger
-            self._license_copyright_buffer = license_copyright_buffer
-            self._license_refs = license_refs
-            self._recipe_file_lookup = recipe_file_lookup
-            self._source_file_lookup = source_file_lookup
-
-        def getLogger(self):
-            return self._logger
-
-        def getLicenseCopyrightBuffer(self):
-            return self._license_copyright_buffer
-
-        def getLicenseRefs(self):
-            return self._license_refs
-
-        def getRecipeFileLookup(self):
-            return self._recipe_file_lookup
-
-        def getSourceFileLookup(self):
-            return self._source_file_lookup
-
     # Initialize common function arguments
     common_args = CommonArgs(logger, license_copyright_buffer, license_refs, recipe_file_lookup, source_file_lookup)
 
