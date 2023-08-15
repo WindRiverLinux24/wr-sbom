@@ -199,6 +199,23 @@ def map_json_from_document_ref(image_json, document_ref, index_json):
                     return index['filename'], spdx_ref
 
 
+def make_document_ref_dict(image_json, index_json):
+    """A potentially faster alternative to the map_json_from_document_ref function.
+    Run this once to get the dictionary and then use that to look up the filename
+    in constant time rather than the loop every time.
+    """
+    docref_dict = {}
+    for docs in image_json:
+        key = docs['externalDocumentId']
+        if key in docref_dict:
+            continue
+        for index in index_json['documents']:
+            if docs['spdxDocument'] == index['documentNamespace']:
+                docref_dict[key] = index['filename']
+                break
+    return docref_dict
+
+
 def relationship_to_string(relationship):
     return f"{relationship['spdxElementId']} {relationship['relationshipType']} {relationship['relatedSpdxElement'].split(':')[-1]}"
 
@@ -546,9 +563,10 @@ def parse_package(pkg_json, pkg, pkg_relationship, sbom_fp, db_conn, args_time, 
     write_package_relationships(master_parsed_rel_list, sbom_fp)
 
 
-def parse_relationship(rel, total, parse_logs, db_conn, args_packages, args_image, args_time, index_json, image_json, deploy_dir_spdx, sbom_dir, common_args):
+def parse_relationship(rel, total, parse_logs, db_conn, args_packages, args_image, args_time, index_json, image_json, deploy_dir_spdx, sbom_dir, docref_dict, common_args):
     # Find filename to parse
-    filename, spdx_ref = map_json_from_document_ref(image_json["externalDocumentRefs"], rel["relatedSpdxElement"], index_json)
+    doc_ref, spdx_ref = re.split('[:]', rel["relatedSpdxElement"])
+    filename = docref_dict[doc_ref]
     package_name = filename.split('.spdx.json')[0]
 
     if args_packages and (package_name not in args_packages):
@@ -740,9 +758,12 @@ def main():
     else:
         total = len(relationships_list)
 
+    docref_dict = make_document_ref_dict(image_json['externalDocumentRefs'], index_json)
     # Parse each package to a single *.spdx file (based on the image relationships)
     for rel in relationships_list[::-1]:
-        success = parse_relationship(rel, total, parse_logs, db_conn, args.packages, args.image, args.time, index_json, image_json, deploy_dir_spdx, sbom_dir, common_args)
+        # Gets whether the parsing succeeded or not.
+        # This is the entry point into all the other functions in this file
+        success = parse_relationship(rel, total, parse_logs, db_conn, args.packages, args.image, args.time, index_json, image_json, deploy_dir_spdx, sbom_dir, docref_dict, common_args)
         if success is not None:
             if success:
                 succeeded += 1
