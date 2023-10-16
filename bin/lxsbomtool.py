@@ -626,7 +626,7 @@ def main():
     license_copyright_buffer = dict()
 
     license_refs = []
-    sqlite_db_files = f"{scripts_path}/../../wr-sbom-dl-4.0/sqlite_db_files"
+    sqlite_db_files = f"{scripts_path}/../../wr-sbom-dl-4.2/sqlite_db_files"
     cached_db_file = f"{os.environ['BUILDDIR']}/cache/wr-sbom/WRLinux-LTS.sqlite3"
 
     recipe_file_lookup = {}
