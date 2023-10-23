@@ -28,7 +28,7 @@ for path in list(filter(lambda p: "bitbake/lib" in p, os.environ["PYTHONPATH"].s
         sys.path = sys.path + [lib_path]
         break
     else:
-        print("scriptutils.py is not found, please check for PYTHONPATH contains a path to bibake/lib")
+        print("ERROR: scriptutils.py is not found, please check for PYTHONPATH contains a path to bibake/lib")
         sys.exit(1)
 
 import scriptutils
@@ -402,7 +402,7 @@ def collate_license_and_copyright(file_data, sbom_fp, license_copyright_buffer=N
     if len(list(set(licenses))) == 1:
         sbom_fp.write(f"LicenseConcluded: {licenses[0]}\n")
     else:
-        sbom_fp.write(f"LicenseConcluded: NOASSERSION\n")
+        sbom_fp.write(f"LicenseConcluded: NOASSERTION\n")
 
     # Write Licenses Info file
     for file_license in list(set(licenses)):
@@ -645,6 +645,7 @@ def main():
     args = parser.parse_args()
 
     # Setup logger and set important variables
+    logger.setLevel(logging.INFO)
     if args.debug:
         logger.setLevel(logging.DEBUG)
         logger.debug(f"Debug Enabled: {args.db_file}")
@@ -667,11 +668,26 @@ def main():
 
     # Load image spdx json and relationships list
     machinearch = machine_arch
-    if not os.path.exists(f"{deploy_dir_image}/{args.image}-{machinearch}.spdx.json"):
+    spdx_tar_filename = f"{deploy_dir_image}/{args.image}-{machinearch}.spdx.tar.zst"
+    if not os.path.exists(spdx_tar_filename):
         machinearch = machine_arch.replace('_', '-')
+        spdx_tar_filename = f"{deploy_dir_image}/{args.image}-{machinearch}.spdx.tar.zst"
+
+    image_filename = f"{deploy_dir_image}/{args.image}-{machinearch}.spdx.json"
+
+    # due to recent upstream change the <image>.spdx.json and <image>.spdx.index.json files
+    # are not created and exist only inside the <image>.spdx.tar.zst file. Both files need
+    # to be extracted from the compressed tar file
+    if not os.path.exists(image_filename) or (os.path.getctime(image_filename) < os.path.getctime(spdx_tar_filename)):
+        index_filename = f"{deploy_dir_image}/{args.image}-{machinearch}.spdx.index.json"
+        os.system(f"tar --extract --to-stdout --file={spdx_tar_filename} index.json > {index_filename}")
+
+        # The image spdx file has the build time in the filename so use a wildcard to extract it
+        image_wildcard_filename = f"{args.image}-{machinearch}-*.spdx.json"
+        os.system(f"tar --extract --to-stdout --wildcards --file={spdx_tar_filename} {image_wildcard_filename} > {image_filename}")
 
     try:
-        image_fp = open(f"{deploy_dir_image}/{args.image}-{machinearch}.spdx.json")
+        image_fp = open(image_filename)
         image_json = json.load(image_fp)
     except Error as e:
         logger.error(e)
@@ -715,7 +731,7 @@ def main():
             while True:
                 rcpl_dump_file = f"{sqlite_db_files}/rcpl-{rcpl:04}.dump.xz"
                 if os.path.exists(rcpl_dump_file):
-                    print(f"Building {cached_db_file} from {rcpl_dump_file}")
+                    logger.info(f"Building {cached_db_file} from {rcpl_dump_file}")
                     os.system(f"xzcat {rcpl_dump_file} >> {cached_db_dir}/.sql_restore")
                     rcpl += 1
                 else:
@@ -724,11 +740,12 @@ def main():
             # Create the database file from .sql_restore and record the last RCPL
             os.system(f"echo 'COMMIT;' >> {cached_db_dir}/.sql_restore")
             os.system(f"sqlite3 {cached_db_file} < {cached_db_dir}/.sql_restore")
+            logger.info("Database has been recreated.")
             os.remove(f"{cached_db_dir}/.sql_restore")
             with open(f"{cached_db_dir}/.last_rcpl", "w") as rcpl_file:
                 rcpl_file.writelines(f"{rcpl-1:04}\n")
         else:
-            print(f"{cached_db_file} is current for RCPL {rcpl:04}")
+            logger.info(f"{cached_db_file} is current for RCPL {rcpl:04}")
 
     if not os.path.exists(f"{args.db_file}"):
         logger.error(f"{args.db_file} Database missing")
