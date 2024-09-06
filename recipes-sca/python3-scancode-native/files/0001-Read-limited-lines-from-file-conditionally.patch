@@ -1,0 +1,69 @@
+From f137da4a3b7c99683bd91305b43f20fa23e3ce7a Mon Sep 17 00:00:00 2001
+From: Hongxu Jia <hongxu.jia@windriver.com>
+Date: Wed, 11 Sep 2024 10:41:05 +0800
+Subject: [PATCH] Read limited lines from file conditionally
+
+If SCANCODE_MAX_FILE_SIZE > 0, and if size of file > SCANCODE_MAX_FILE_SIZE,
+read SCANCODE_MAX_READ_LINES lines from file otherwise read lines from file as usual
+
+Upstream-Status: Pending
+
+Signed-off-by: Hongxu Jia <hongxu.jia@windriver.com>
+---
+ src/textcode/analysis.py | 26 ++++++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+
+diff --git a/src/textcode/analysis.py b/src/textcode/analysis.py
+index d86fd6d717..facf394a1d 100644
+--- a/src/textcode/analysis.py
++++ b/src/textcode/analysis.py
+@@ -182,10 +182,23 @@ def unicode_text_lines_from_binary(location):
+     Return an iterable over unicode text lines extracted from a binary file at
+     location.
+     """
++    # If SCANCODE_MAX_FILE_SIZE > 0, and if size of file > SCANCODE_MAX_FILE_SIZE,
++    # read SCANCODE_MAX_READ_LINES lines from file
++    # otherwise read lines from file as usual
++    max_lines = 0
++    max_file_size = int(os.environ.get('SCANCODE_MAX_FILE_SIZE', '0'))
++    if max_file_size > 0:
++        size =  os.path.getsize(location)
++        if size >= max_file_size:
++            max_lines = int(os.environ.get('SCANCODE_MAX_READ_LINES', '1000'))
++    num = 0
+     T = typecode.get_type(location)
+     if T.contains_text:
+         for line in strings.strings_from_file(location):
+             yield remove_verbatim_cr_lf_tab_chars(line)
++            num += 1
++            if num == max_lines:
++                break
+ 
+ 
+ def unicode_text_lines_from_pdf(location):
+@@ -335,9 +348,22 @@ def unicode_text_lines(location, decrlf=False):
+ 
+ 
+ def _unicode_text_lines(location):
++    # If SCANCODE_MAX_FILE_SIZE > 0, and if size of file > SCANCODE_MAX_FILE_SIZE,
++    # read SCANCODE_MAX_READ_LINES lines from file
++    # otherwise read lines from file as usual
++    max_lines = 0
++    max_file_size = int(os.environ.get('SCANCODE_MAX_FILE_SIZE', '0'))
++    if max_file_size > 0:
++        size =  os.path.getsize(location)
++        if size >= max_file_size:
++            max_lines = int(os.environ.get('SCANCODE_MAX_READ_LINES', '1000'))
++    num = 0
+     with open(location, 'rb') as f:
+         for line in f.read().splitlines(True):
+             yield as_unicode(line)
++            num += 1
++            if num == max_lines:
++                break
+ 
+ 
+ def unicode_text(location, decrlf=False):
+-- 
+2.27.0
+
