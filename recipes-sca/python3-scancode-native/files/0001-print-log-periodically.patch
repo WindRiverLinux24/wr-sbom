@@ -1,0 +1,52 @@
+From d264912ad4c03997a8497491b37283a8537e74fa Mon Sep 17 00:00:00 2001
+From: Hongxu Jia <hongxu.jia@windriver.com>
+Date: Thu, 12 Sep 2024 18:55:50 +0800
+Subject: [PATCH] print log periodically
+
+The scancode running log was not caught by bitbake log because of
+terminal escape characters, mandatory print log periodically
+which could be saved to bitbake log
+
+Upstream-Status: Inappropriate [oe specific]
+
+Signed-off-by: Hongxu Jia <hongxu.jia@windriver.com>
+---
+ src/scancode/cli.py | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/src/scancode/cli.py b/src/scancode/cli.py
+index ff1807df26..07b1ca097e 100644
+--- a/src/scancode/cli.py
++++ b/src/scancode/cli.py
+@@ -25,6 +25,7 @@ from functools import partial
+ from multiprocessing import TimeoutError
+ from time import sleep
+ from time import time
++from time import localtime
+ 
+ import commoncode
+ 
+@@ -1295,6 +1296,7 @@ def scan_codebase(
+             if hasattr(scans, '__enter__'):
+                 scans.__enter__()
+ 
++        last = time()
+         while True:
+             try:
+                 (location,
+@@ -1308,6 +1310,12 @@ def scan_codebase(
+                     logger_debug(
+                     'scan_codebase: location:', location, 'results:', scan_result)
+ 
++                current = time()
++                if current > last + DEFAULT_TIMEOUT:
++                    t = localtime(current)
++                    click.echo(f"{t.tm_hour}:{t.tm_min}:{t.tm_sec} Scanning: {location}")
++                    last = current
++
+                 resource = get_resource(path=path)
+ 
+                 if not resource:
+-- 
+2.27.0
+
