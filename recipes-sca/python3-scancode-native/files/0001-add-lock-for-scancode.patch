@@ -1,0 +1,58 @@
+From 3b4e4fa2e7db4077c7a798c858e2c08495f2a49f Mon Sep 17 00:00:00 2001
+From: Hongxu Jia <hongxu.jia@windriver.com>
+Date: Thu, 12 Sep 2024 15:19:24 +0800
+Subject: [PATCH] add lock for scancode
+
+Add a lock to fix multiple scancode racing, which requires
+environment SCANCODE_LOCK and SCANCODE_LOCK_TIMEOUT was set
+
+In order to save scan time, direct exit if scancode cache
+file (var-SCANCODE_JSON_CACHE) existed
+
+Upstream-Status: Inappropriate [oe specific]
+
+Signed-off-by: Hongxu Jia <hongxu.jia@windriver.com>
+---
+ src/scancode/cli.py | 19 ++++++++++++++++++-
+ 1 file changed, 18 insertions(+), 1 deletion(-)
+
+diff --git a/src/scancode/cli.py b/src/scancode/cli.py
+index a58a5b09b8..375b7fe064 100644
+--- a/src/scancode/cli.py
++++ b/src/scancode/cli.py
+@@ -374,7 +374,7 @@ def validate_input_path(ctx, param, value):
+     # not yet supported in Click 6.7 but added in PluggableCommandLineOption
+     hidden=True,
+     help_group=cliutils.MISC_GROUP, sort_order=1000, cls=PluggableCommandLineOption)
+-def scancode(
++def _scancode_(
+     ctx,
+     input,  # NOQA
+     strip_root,
+@@ -523,6 +523,23 @@ def scancode(
+     rc = 0 if success else 1
+     ctx.exit(rc)
+ 
++def scancode(
++    *args,
++    **kwargs,
++):
++    from scancode import lockfile
++    env_scancode_lock = os.getenv('SCANCODE_LOCK')
++    env_scancode_lock_timeout = int(os.getenv('SCANCODE_LOCK_TIMEOUT'))
++    if env_scancode_lock and env_scancode_lock_timeout:
++        with lockfile.FileLock(env_scancode_lock).locked(timeout=env_scancode_lock_timeout):
++            env_scancode_cache = os.getenv('SCANCODE_JSON_CACHE')
++            if env_scancode_cache and os.path.exists(env_scancode_cache):
++                click.echo(f"{env_scancode_cache} already exists")
++                return
++            return _scancode_(*args, **kwargs)
++    else:
++        click.echo("Failed, please set SCANCODE_LOCK and SCANCODE_LOCK_TIMEOUT")
++        return 1
+ 
+ def run_scan(
+     input,  # NOQA
+-- 
+2.27.0
+
