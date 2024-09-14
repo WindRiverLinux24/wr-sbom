@@ -1,0 +1,31 @@
+From 1dd1fd684b39d15c3cd30b5ac5bd6f5f06e4b1b4 Mon Sep 17 00:00:00 2001
+From: Hongxu Jia <hongxu.jia@windriver.com>
+Date: Sat, 14 Sep 2024 13:55:07 +0800
+Subject: [PATCH] set LICENSE_INDEX_LOCK_TIMEOUT to 6h
+
+Almost wait a permanent time for license index lock timeout,
+make multiple scancode work without timeout
+
+Upstream-Status: Inappropriate [yocto specific]
+
+Signed-off-by: Hongxu Jia <hongxu.jia@windriver.com>
+---
+ src/licensedcode/cache.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/licensedcode/cache.py b/src/licensedcode/cache.py
+index a257576d2c..543e9bd720 100644
+--- a/src/licensedcode/cache.py
++++ b/src/licensedcode/cache.py
+@@ -29,7 +29,7 @@ PICKLE_PROTOCOL = 4
+ # global in-memory cache of the LicenseCache
+ _LICENSE_CACHE = None
+ 
+-LICENSE_INDEX_LOCK_TIMEOUT = 60 * 6
++LICENSE_INDEX_LOCK_TIMEOUT = 3600 * 6
+ LICENSE_INDEX_DIR = 'license_index'
+ LICENSE_INDEX_FILENAME = 'index_cache'
+ LICENSE_LOCKFILE_NAME = 'scancode_license_index_lockfile'
+-- 
+2.27.0
+
