@@ -90,6 +90,7 @@ DEPENDS += "\
 
 SRC_URI = "git://github.com/nexB/scancode-toolkit.git;protocol=https;nobranch=1 \
            file://0001-Read-limited-lines-from-file-conditionally.patch \
+           file://update-spdx.py \
 "
 SRCREV = "cafcbcf606bf30f0b5a62f27493d8aeec25fdcf8"
 
@@ -97,3 +98,7 @@ S = "${WORKDIR}/git"
 
 inherit python_setuptools_build_meta
 inherit native
+
+do_install:append () {
+    install -m 755 ${WORKDIR}/update-spdx.py ${D}${bindir}
+}
