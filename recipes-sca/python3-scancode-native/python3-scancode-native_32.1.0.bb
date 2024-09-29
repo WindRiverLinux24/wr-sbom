@@ -93,6 +93,7 @@ SRC_URI = "git://github.com/nexB/scancode-toolkit.git;protocol=https;nobranch=1 
            file://0001-add-lock-for-scancode.patch \
            file://0001-print-log-periodically.patch \
            file://0001-set-LICENSE_INDEX_LOCK_TIMEOUT-to-6h.patch \
+           file://0001-prevent-avalanches-while-booting-pool.patch \
            file://update-spdx.py \
 "
 SRCREV = "cafcbcf606bf30f0b5a62f27493d8aeec25fdcf8"
@@ -105,3 +106,12 @@ inherit native
 do_install:append () {
     install -m 755 ${WORKDIR}/update-spdx.py ${D}${bindir}
 }
+
+SCANCODE_SEMAPHORE ??= "${TOPDIR}/scancode.semaphore"
+python __anonymous () {
+    scancode_sem = d.getVar("SCANCODE_SEMAPHORE")
+    if os.path.exists(scancode_sem):
+        bb.note(f"Clen up {scancode_sem}")
+        os.remove(scancode_sem)
+}
+

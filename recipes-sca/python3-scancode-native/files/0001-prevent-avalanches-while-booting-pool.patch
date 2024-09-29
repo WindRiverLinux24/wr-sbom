@@ -1,0 +1,84 @@
+From 0835cfc8f3f401e7cac9e68612bb385fb22f858a Mon Sep 17 00:00:00 2001
+From: Hongxu Jia <hongxu.jia@windriver.com>
+Date: Wed, 18 Sep 2024 23:19:15 +0800
+Subject: [PATCH] prevent avalanches while booting pool
+
+While calling multiple scancode parallel, the unlimited increasing
+scancode caused build system OOM broken.
+
+Add a global semaphore for scan_codebase in which invoking multiprocessing
+pool, if the number of scancode > max, wait in a loop, otherwise increase
++1 in the count file to obtain semaphore, and go on the work. While leaving
+scan_codebase, decrease -1 to the count file to release semaphore
+
+Upstream-Status: Inappropriate [Yocto specific]
+
+Signed-off-by: Hongxu Jia <hongxu.jia@windriver.com>
+---
+ src/scancode/cli.py | 38 ++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 38 insertions(+)
+
+diff --git a/src/scancode/cli.py b/src/scancode/cli.py
+index 375b7fe064..ec61d2b3ff 100644
+--- a/src/scancode/cli.py
++++ b/src/scancode/cli.py
+@@ -39,6 +39,8 @@ except NameError:
+ 
+ import click  # NOQA
+ 
++from scancode import lockfile
++
+ from commoncode import cliutils
+ from commoncode.cliutils import GroupedHelpCommand
+ from commoncode.cliutils import path_progress_message
+@@ -1198,11 +1200,47 @@ def run_scanners(
+             item_show_func=item_show_func,
+             verbose=verbose, file=sys.stderr)
+ 
++    env_scancode_lock = os.getenv('SCANCODE_POOL_LOCK')
++    env_scancode_lock_timeout = int(os.getenv('SCANCODE_LOCK_TIMEOUT'))
++    env_scancode_sem = os.getenv('SCANCODE_SEMAPHORE')
++    env_scancode_max = int(os.getenv('SCANCODE_MAX', '5'))
++    if not env_scancode_lock or not env_scancode_lock_timeout or not env_scancode_sem:
++        click.echo("Failed, please set SCANCODE_POOL_LOCK, SCANCODE_LOCK_TIMEOUT and SCANCODE_SEMAPHORE")
++        sys.exit(1)
++
++    while True:
++        with lockfile.FileLock(env_scancode_lock).locked(timeout=env_scancode_lock_timeout):
++             if os.path.exists(env_scancode_sem):
++                 scancode_num = int(open(env_scancode_sem, "r").read())
++             else:
++                 scancode_num = 0
++
++             scancode_num += 1
++             if scancode_num <= env_scancode_max:
++                 with open(env_scancode_sem, "w") as f:
++                     f.write(f"{scancode_num}")
++                 os.system("sync")
++                 break
++
++        sleep(20)
++
+     # TODO: add CLI option to bypass cache entirely?
+     scan_success = scan_codebase(
+         codebase, scanners, processes, timeout,
+         with_timing=timing, progress_manager=progress_manager)
+ 
++    with lockfile.FileLock(env_scancode_lock).locked(timeout=env_scancode_lock_timeout):
++         if os.path.exists(env_scancode_sem):
++             scancode_num = int(open(env_scancode_sem, "r").read())
++         else:
++             scancode_num = 1
++
++         scancode_num -= 1
++         with open(env_scancode_sem, "w") as f:
++             f.write(f"{scancode_num}")
++         os.system("sync")
++
++
+     # TODO: add progress indicator
+     # run the process codebase of each scan plugin (most often a no-op)
+     scan_process_codebase_success = run_codebase_plugins(
+-- 
+2.27.0
+
