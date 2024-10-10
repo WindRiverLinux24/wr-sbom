@@ -114,7 +114,7 @@ def _parse_filetype(fileinfo):
 licenses= cache.get_licenses_db()
 licensing = Licensing()
 
-def main():
+def _main_():
     parser = argparse.ArgumentParser(description='Convert Scancode Json to SPDX Json')
     parser.add_argument('--output-spdx-json', dest='output_spdx_json', required=True,
         help='Output SPDX Json file')
@@ -157,6 +157,22 @@ def main():
     logger.info(f"Total {time()-begin} done")
     with open(args.output_spdx_json, "w") as f:
         json.dump(spdx_json, f, indent=2)
+
+def main():
+    from scancode import lockfile
+    env_spdx_lock = os.getenv('SPDX_LOCK')
+    env_spdx_lock_timeout = int(os.getenv('SCANCODE_LOCK_TIMEOUT'))
+    if env_spdx_lock and env_spdx_lock_timeout:
+        with lockfile.FileLock(env_spdx_lock).locked(timeout=env_spdx_lock_timeout):
+            env_spdx_cache = os.getenv('SPDX_JSON_CACHE')
+            if env_spdx_cache and os.path.exists(env_spdx_cache):
+                print(f"SPDX cache {env_spdx_cache} already exists")
+                return 0
+            return _main_()
+    else:
+        print("Failed, please set SCANCODE_LOCK and SCANCODE_LOCK_TIMEOUT")
+        return 1
+
 
 if __name__ == "__main__":
     try:
