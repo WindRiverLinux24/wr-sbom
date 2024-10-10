@@ -145,23 +145,23 @@ def scan_copyrights(location):
     file_copyrights = ret_copyrights.get('copyrights')
     return _parse_copyrights(file_copyrights)
 
-def scan_checksum_sha1(location):
+def scan_checksum_sha256(location):
     ret_info = get_file_info(location)
 
-    logger.debug(f"sha1 {ret_info.get('sha1')}")
-    return ret_info.get('sha1')
+    logger.debug(f"sha256 {ret_info.get('sha256')}")
+    return ret_info.get('sha256')
 
 BUF_SIZE = 65536
-def sha1sum(filename):
-    sha1 = hashlib.sha1()
+def sha256sum(filename):
+    sha256 = hashlib.sha256()
     with open(filename, 'rb', buffering=0) as f:
         while True:
             data = f.read(BUF_SIZE)
             if not data:
                 break
-            sha1.update(data)
+            sha256.update(data)
 
-    return sha1.hexdigest()
+    return sha256.hexdigest()
 
 def update_from_cache(spdx_json_cache, scancode_data, ignores=[], ignore_basename=[], no_binary=False):
     if spdx_json_cache and os.path.exists(spdx_json_cache):
@@ -185,7 +185,7 @@ def update_from_cache(spdx_json_cache, scancode_data, ignores=[], ignore_basenam
                 continue
 
             # Use cache to update if checksum has no change
-            if fileinfo_cache.get("SHA1") == sha1sum(filename):
+            if fileinfo_cache.get("SHA256") == sha256sum(filename):
                 scancode_data[filename] = fileinfo_cache
                 scancode_data[filename]["status"] = "done"
                 logger.debug(f"{filename}  {scancode_data[filename]}")
@@ -222,9 +222,9 @@ def scan_undo(scancode_data):
             logger.debug(f"Skip {location}: {scancode_data[location]}")
             continue
 
-        sha1 = scan_checksum_sha1(location)
-        if sha1 is None:
-            logger.info(f"Drop {location} by scancode, no valid sha1")
+        sha256 = scan_checksum_sha256(location)
+        if sha256 is None:
+            logger.info(f"Drop {location} by scancode, no valid sha256")
             continue
 
         start = time()
@@ -233,8 +233,8 @@ def scan_undo(scancode_data):
         scancode_data[location] = {
             "licenseInfoInFiles": spdx_licenses,
             "copyrightText": scan_copyrights(location),
-            'hasExtractedLicensingInfos': extracted_licensing_info,
-            "SHA1": sha1,
+            "hasExtractedLicensingInfos": extracted_licensing_info,
+            "SHA256": sha256,
             "fileTypes": _parse_filetype(location),
             "status": "done",
         }

@@ -140,8 +140,8 @@ def _main_():
     # Update scancode cache to scancode data if checksum has no change
     for fileinfo in scancode_json.get("files"):
         filename = fileinfo.get("path")
-        if fileinfo.get("sha1") is None:
-            logger.info(f"Drop {filename} by scancode, no valid sha1")
+        if fileinfo.get("sha256") is None:
+            logger.info(f"Drop {filename} by scancode, no valid sha256")
             continue
 
         spdx_licenses, extracted_licensing_info = _parse_licenses(fileinfo.get('license_detections'))
@@ -149,7 +149,7 @@ def _main_():
             "licenseInfoInFiles": spdx_licenses,
             "copyrightText": _parse_copyrights(fileinfo.get("copyrights")),
             'hasExtractedLicensingInfos': extracted_licensing_info,
-            "SHA1": fileinfo.get("sha1"),
+            "SHA256": fileinfo.get("sha256"),
             "fileTypes": _parse_filetype(fileinfo),
         }
 

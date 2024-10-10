@@ -47,7 +47,7 @@ def init_spdx(prefix, doc, spdx_json):
     # data = {
     #   "<fileName>": {
     #     "status": "undo"|"done",
-    #     "SHA1": "<checksumValue>"
+    #     "SHA256": "<checksumValue>"
     #   }
     # }
     data = {}
@@ -56,8 +56,8 @@ def init_spdx(prefix, doc, spdx_json):
             fileName = os.path.join(prefix,spdx_file.fileName)
             data[fileName] = {"status": "undo"}
             for checksum in spdx_file.checksums:
-                if checksum.algorithm == "SHA1":
-                    data[fileName]["SHA1"] = checksum.checksumValue
+                if checksum.algorithm == "SHA256":
+                    data[fileName]["SHA256"] = checksum.checksumValue
 
     with open(spdx_json, "w") as f:
         json.dump(data, f, indent=2)
@@ -72,7 +72,7 @@ def update_doc(spdx_json, prefix, doc, spdx_pkg):
     # spdx_data = {
     #   "<fileName>": {
     #     "status": "undo"|"done",
-    #     "SHA1": "<checksumValue>",
+    #     "SHA256": "<checksumValue>",
     #     "licenseInfoInFiles": ["XXXX"],
     #     "hasExtractedLicensingInfos": [],
     #     "copyrightText": "YYYY",
@@ -329,7 +329,7 @@ def set_spdx(d, spdx_json):
     # spdx_json = {
     #   "<fileName>": {
     #     "status": "undo"|"done",
-    #     "SHA1": "<checksumValue>",
+    #     "SHA256": "<checksumValue>",
     #     "licenseInfoInFiles": ["XXXX"],
     #     "hasExtractedLicensingInfos": [],
     #     "copyrightText": "YYYY",
