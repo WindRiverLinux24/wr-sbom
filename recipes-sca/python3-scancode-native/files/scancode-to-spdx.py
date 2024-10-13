@@ -10,6 +10,7 @@ import logging
 import sys
 import os
 import hashlib
+import subprocess
 from time import time
 
 from licensedcode.detection import get_matches_from_detection_mappings
@@ -115,9 +116,9 @@ licenses= cache.get_licenses_db()
 licensing = Licensing()
 
 def _main_():
-    parser = argparse.ArgumentParser(description='Convert Scancode Json to SPDX Json')
+    parser = argparse.ArgumentParser(description='Convert Scancode Json to SPDX Json or XZ compressed SPDX Json')
     parser.add_argument('--output-spdx-json', dest='output_spdx_json', required=True,
-        help='Output SPDX Json file')
+        help='Output SPDX Json file (xxx.json)or XZ compressed SPDX Json (xxx.json.xz)')
 
     parser.add_argument('--input-scancode-json', dest='input_scancode_json', required=True,
         help='Input Scancode Json file')
@@ -155,8 +156,26 @@ def _main_():
 
     logger.debug(f"spdx_json {spdx_json}")
     logger.info(f"Total {time()-begin} done")
-    with open(args.output_spdx_json, "w") as f:
+    if args.output_spdx_json.endswith(".json"):
+        output_spdx_json = args.output_spdx_json
+    elif args.output_spdx_json.endswith(".json.xz"):
+        output_spdx_json = args.output_spdx_json.removesuffix(".xz")
+    else:
+        logger.error(f"Unknow --output-spdx-json {args.output_spdx_json}, only support `--output-spdx-json xxx.json.xz' or `--output-spdx-json xxx.json'")
+        sys.exit(1)
+
+    with open(output_spdx_json, "w") as f:
         json.dump(spdx_json, f, indent=2)
+
+    if args.output_spdx_json.endswith(".json.xz"):
+        cmd = f"xz -f -6 --memlimit=50% --threads=2 --check=crc32 {output_spdx_json}"
+        logger.info(cmd)
+        try:
+            output = subprocess.check_output(cmd, \
+                        shell=True, stderr=subprocess.STDOUT).decode("utf-8")
+        except subprocess.CalledProcessError as e:
+            logger.error("Error running %s: %s" % (cmd, e.output.decode("utf-8")))
+            sys.exit(1)
 
 def main():
     from scancode import lockfile

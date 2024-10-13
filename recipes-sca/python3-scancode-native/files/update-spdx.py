@@ -11,6 +11,7 @@ import sys
 import os
 import hashlib
 from time import time
+import lzma
 
 from scancode.api import get_licenses
 from scancode.api import get_copyrights
@@ -165,8 +166,15 @@ def sha256sum(filename):
 
 def update_from_cache(spdx_json_cache, scancode_data, ignores=[], ignore_basename=[], no_binary=False):
     if spdx_json_cache and os.path.exists(spdx_json_cache):
-        with open(spdx_json_cache) as f:
-            scancode_cache = json.load(f)
+        if spdx_json_cache.endswith(".json"):
+            with open(spdx_json_cache) as f:
+                scancode_cache = json.load(f)
+        elif spdx_json_cache.endswith(".json.xz"):
+            with lzma.open(spdx_json_cache, "r") as f:
+                scancode_cache = json.load(f)
+        else:
+            logger.error(f"Unknow --spdx-json-cache {spdx_json_cache}, only support `--spdx-json-cache xxx.json.xz' or `--spdx-json-cache xxx.json'")
+            sys.exit(1)
 
         for filename in scancode_data:
             if os.path.basename(filename) in ignore_basename:
@@ -249,7 +257,7 @@ def main():
         help='The SPDX Json to be updated')
 
     parser.add_argument('--spdx-json-cache', dest='spdx_json_cache', default=None,
-        help='The SPDX Cache, if source file has no change, use cache other than scan for the source file')
+        help='The SPDX Cache (xxx.json) or XZ compressed SPDX Json Cache (xxx.json.xz), if source file has no change, use cache other than scan for the source file')
 
     parser.add_argument('--ignore', dest='ignore', default=[], action='append',
         help='Ignore source file to update, repeat --ignore=<file> for multiple files')
