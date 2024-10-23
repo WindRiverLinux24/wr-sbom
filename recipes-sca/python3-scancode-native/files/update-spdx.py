@@ -12,6 +12,7 @@ import os
 import hashlib
 from time import time
 import lzma
+import site
 
 from scancode.api import get_licenses
 from scancode.api import get_copyrights
@@ -74,13 +75,23 @@ def _parse_licenses(licensing, licenses, license_detections):
                         f'See details at https://github.com/nexB/scancode-toolkit'
                         f'/blob/develop/src/licensedcode/data/licenses/{license_key}.LICENSE\n'
                     )
+
+                    simplelicensing_licenseText = ""
+                    for python_sitepackage_dir in site.getsitepackages():
+                        license_file = os.path.join(python_sitepackage_dir, "licensedcode/data/licenses", f"{license_key}.LICENSE")
+                        if os.path.exists(license_file):
+                            with open(license_file, "r") as f:
+                                simplelicensing_licenseText = f.read()
+                            break
+
                     extracted_license = {
                         'licenseId': spdx_id,
                         # always set some text, even if we did not extract the
                         # matched text
                         'extractedText': text if text else comment,
                         'name': file_license.short_name,
-                        'comment': comment
+                        'comment': comment,
+                        'simplelicensing_licenseText': simplelicensing_licenseText,
                     }
 
 
@@ -192,13 +203,16 @@ def update_from_cache(spdx_json_cache, scancode_data, ignores=[], ignore_basenam
                 ignores.append(filename)
                 continue
 
+            spdxId = scancode_data[filename].get("spdxId", "")
             # Use cache to update if checksum has no change
             if fileinfo_cache.get("SHA256") == sha256sum(filename):
                 scancode_data[filename] = fileinfo_cache
                 scancode_data[filename]["status"] = "done"
+                scancode_data[filename]["spdxId"] = spdxId
                 logger.debug(f"{filename}  {scancode_data[filename]}")
             else:
                 scancode_data[filename]["status"] = "undo"
+                scancode_data[filename]["spdxId"] = spdxId
                 logger.info(f"{filename} has changed")
 
         # Remove ignore files from data
@@ -239,6 +253,7 @@ def scan_undo(scancode_data):
         logger.info(f"{location} {count}/{total_undo}")
         spdx_licenses, extracted_licensing_info = scan_licenses(location, licensing, licenses)
         scancode_data[location] = {
+            "spdxId": scancode_data[location].get("spdxId", ""),
             "licenseInfoInFiles": spdx_licenses,
             "copyrightText": scan_copyrights(location),
             "hasExtractedLicensingInfos": extracted_licensing_info,

@@ -12,6 +12,7 @@ import os
 import hashlib
 import subprocess
 from time import time
+import site
 
 from licensedcode.detection import get_matches_from_detection_mappings
 
@@ -55,13 +56,23 @@ def _parse_licenses(license_detections):
                         f'See details at https://github.com/nexB/scancode-toolkit'
                         f'/blob/develop/src/licensedcode/data/licenses/{license_key}.LICENSE\n'
                     )
+
+                    simplelicensing_licenseText = ""
+                    for python_sitepackage_dir in site.getsitepackages():
+                        license_file = os.path.join(python_sitepackage_dir, "licensedcode/data/licenses", f"{license_key}.LICENSE")
+                        if os.path.exists(license_file):
+                            with open(license_file, "r") as f:
+                                simplelicensing_licenseText = f.read()
+                            break
+
                     extracted_license = {
                         'licenseId': spdx_id,
                         # always set some text, even if we did not extract the
                         # matched text
                         'extractedText': text if text else comment,
                         'name': file_license.short_name,
-                        'comment': comment
+                        'comment': comment,
+                        'simplelicensing_licenseText': simplelicensing_licenseText
                     }
 
 
