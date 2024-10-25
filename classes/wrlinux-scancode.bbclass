@@ -11,6 +11,13 @@ do_create_spdx[depends] += "${SBOM_DEPENS}"
 # https://docs.yoctoproject.org/dev/ref-manual/variables.html#term-SPDX_PRETTY
 SPDX_PRETTY = "1"
 
+# Scan source file
+SPDX_SCAN_SOURCE ??= "1"
+# Scan package
+SPDX_SCAN_PACKAGE ??= "0"
+# Scan sysroot (SPDX 3.0 only)
+SPDX_SCAN_SYSROOT ??= "0"
+
 SOURCE_NAME ??= "${BPN}"
 PACKAGE_NAME ??= "${PN}"
 SYSROOT_NAME ??= "${PN}"
@@ -679,9 +686,15 @@ def scan_sysroot(d, source_dir):
 def scan_set_spdx2(d, scan_dir, doc, spdx_pkg):
     bb.note(f"Scan SPDX 2.2 Files at {scan_dir}")
     if str(scan_dir) == d.getVar("SPDXWORK"):
+        if d.getVar("SPDX_SCAN_SOURCE") != "1":
+            bb.note("Skip source scan")
+            return
         spdx_json = d.getVar("SOURCE_SPDX_JSON")
         prefix = ""
     elif str(scan_dir).startswith(d.getVar("PKGDEST")):
+        if d.getVar("SPDX_SCAN_PACKAGE") != "1":
+            bb.note("Skip package scan")
+            return
         spdx_json = d.getVar("PACKAGE_SPDX_JSON")
         prefix = scan_dir.name
 
@@ -698,12 +711,21 @@ def scan_set_spdx3(d, scan_dir, objset, build_objset, spdx_files, license_data):
 
     bb.note(f"Scan SPDX {d.getVar('SPDX_VERSION')} Files at {scan_dir}")
     if str(scan_dir) == d.getVar("SPDXWORK"):
+        if d.getVar("SPDX_SCAN_SOURCE") != "1":
+            bb.note("Skip source scan")
+            return
         spdx_json = d.getVar("SOURCE_SPDX_JSON")
         prefix = ""
     elif str(scan_dir).startswith(d.getVar("PKGDEST")):
+        if d.getVar("SPDX_SCAN_PACKAGE") != "1":
+            bb.note("Skip package scan")
+            return
         spdx_json = d.getVar("PACKAGE_SPDX_JSON")
         prefix = scan_dir.name
     elif str(scan_dir) == d.expand("${COMPONENTS_DIR}/${PACKAGE_ARCH}/${PN}"):
+        if d.getVar("SPDX_SCAN_SYSROOT") != "1":
+            bb.note("Skip sysroot scan")
+            return
         spdx_json = d.getVar("SYSROOT_SPDX_JSON")
         prefix = ""
 
@@ -715,9 +737,12 @@ def scan_set_spdx3(d, scan_dir, objset, build_objset, spdx_files, license_data):
     bb.note(f"Scan SPDX {d.getVar('SPDX_VERSION')} Files done")
 
 python do_create_spdx:prepend() {
-    d.setVar("SCAN_SOURCES_HOOK", scan_sources)
-    d.setVar("SCAN_PACKAGES_HOOK", scan_packages)
-    d.setVar("SCAN_SYSROOT_HOOK", scan_sysroot)
+    if d.getVar("SPDX_SCAN_SOURCE") == "1":
+        d.setVar("SCAN_SOURCES_HOOK", scan_sources)
+    if d.getVar("SPDX_SCAN_PACKAGE") == "1":
+        d.setVar("SCAN_PACKAGES_HOOK", scan_packages)
+    if d.getVar("SPDX_SCAN_SYSROOT") == "1":
+        d.setVar("SCAN_SYSROOT_HOOK", scan_sysroot)
     if d.getVar("SPDX_VERSION").startswith("3.0"):
         d.setVar("SCAN_SET_SPDX_HOOK", scan_set_spdx3)
     else:
