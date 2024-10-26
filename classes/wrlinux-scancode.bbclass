@@ -11,6 +11,9 @@ do_create_spdx[depends] += "${SBOM_DEPENS}"
 # https://docs.yoctoproject.org/dev/ref-manual/variables.html#term-SPDX_PRETTY
 SPDX_PRETTY = "1"
 
+# https://docs.yoctoproject.org/dev/ref-manual/variables.html#term-SPDX_INCLUDE_SOURCES
+SPDX_INCLUDE_SOURCES = "1"
+
 # Scan source file
 SPDX_SCAN_SOURCE ??= "1"
 # Scan package
@@ -57,6 +60,8 @@ SCANCODE_POOL_LOCK ??= "${BB_CACHEDIR}/scancode-pool.lock"
 SCANCODE_SEMAPHORE ?= "${BB_CACHEDIR}/scancode.semaphore"
 SCANCODE_MAX ??= "5"
 NO_SCANCODE_JSON_CACHE ??= "0"
+
+require conf/sbom.conf
 
 def init_spdx2(prefix, doc, spdx_json):
     import json
