@@ -1,10 +1,10 @@
 This template adds support for generating a Software Bill of Materials
-(SBOM) to the project.
+(SBOM) 2.2 to the project.
 
 To use this template, add the following to your setup line:
 
-    --templates feature/sbom --layers wr-sbom
+    --templates feature/sbom-2 --layers wr-sbom
 
 #@TYPE: Wrtemplate
 #@NAME: sbom
-#@DESCRIPTION: Add SBOM support to the project
+#@DESCRIPTION: Add SBOM 2.2 support to the project
