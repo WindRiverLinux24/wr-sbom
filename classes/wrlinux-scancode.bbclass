@@ -6,7 +6,20 @@ SBOM_DEPENS ??= " \
     python3-scancode-native:do_populate_sysroot \
     coreutils-native:do_populate_sysroot \
 "
-do_create_spdx[depends] += "${SBOM_DEPENS}"
+do_prepare_scancode_tools[depends] += "${SBOM_DEPENS}"
+addtask do_prepare_scancode_tools before do_create_spdx
+
+python do_prepare_scancode_tools() {
+    import shutil
+    if not shutil.which("scancode"):
+        bb.fatal("The command scancode not found")
+}
+SSTATETASKS += "do_prepare_scancode_tools"
+do_prepare_scancode_tools[sstate-inputdirs] = ""
+do_prepare_scancode_tools[sstate-outputdirs] = ""
+python do_prepare_scancode_tools_setscene () {
+    sstate_setscene(d)
+}
 
 # https://docs.yoctoproject.org/dev/ref-manual/variables.html#term-SPDX_PRETTY
 SPDX_PRETTY = "1"
