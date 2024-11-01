@@ -766,3 +766,45 @@ python do_create_spdx:prepend() {
     else:
         d.setVar("SCAN_SET_SPDX_HOOK", scan_set_spdx2)
 }
+
+def create_spdx_source_cache_deps(d):
+    import oe.spdx_common
+
+    spdx_source_cache = d.getVar("SOURCE_SPDX_JSON_CACHE")
+    no_cache = d.getVar("NO_SCANCODE_JSON_CACHE")
+    # Skip deps if spdx source cache exists
+    if no_cache == "0" and os.path.exists(spdx_source_cache):
+        bb.debug(1, f"Skip deps, spdx source cache {spdx_source_cache} exists")
+        return ""
+
+    return "%s %s %s" % (d.getVar("PATCHDEPENDENCY"),
+                         d.getVar("SBOM_DEPENS"),
+                         create_spdx_source_deps(d))
+
+# Create spdx source caches via
+# bitbake world --runall=create_spdx_source_cache
+python do_create_spdx_source_cache() {
+    import oe.spdx_common
+    from pathlib import Path
+    spdx_workdir = Path(d.getVar("SPDXWORK"))
+    include_sources = d.getVar("SPDX_INCLUDE_SOURCES") == "1"
+    spdx_source_cache = d.getVar("SOURCE_SPDX_JSON_CACHE")
+    no_cache = d.getVar("NO_SCANCODE_JSON_CACHE")
+
+    if oe.spdx_common.process_sources(d) and include_sources:
+        if no_cache == "0" and os.path.exists(spdx_source_cache):
+            bb.note(f"Skip, SPDX source cache {spdx_source_cache} existed")
+            return
+
+        # Prepare source files
+        oe.spdx_common.get_patched_src(d)
+
+        # Scan sources and create spdx source cache
+        scan_sources(d, spdx_workdir)
+}
+addtask do_create_spdx_source_cache
+do_create_spdx_source_cache[dirs] = "${SPDXWORK}"
+do_create_spdx_source_cache[cleandirs] = "${SPDXWORK}"
+do_create_spdx_source_cache[depends] += " \
+    ${@create_spdx_source_cache_deps(d)} \
+"
