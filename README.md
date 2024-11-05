@@ -34,10 +34,10 @@ bitbake ${image_name}
 Upon building an image, you will then get:
 
 - For SPDX 2.2, the compressed archive IMAGE-MACHINE.rootfs.spdx.tar.zst in tmp-glibc/deploy/images/MACHINE/
-contains the index and the files for the single recipes.
+contains the index and the files for the single recipes.  
 
 - For SPDX 3.0.1, SPDX output in JSON format as an IMAGE-MACHINE.rootfs.spdx.json file in
-tmp-glibc/deploy/images/MACHINE/ inside the Build Directory.
+tmp-glibc/deploy/images/MACHINE/ inside the Build Directory.  
 
 #### Build SDK
 ```bash
@@ -47,20 +47,62 @@ bitbake ${image_name} -cpopulate_sdk
 Upon building an SDK, you will then get:
 
 - For SPDX 2.2, two compressed archives SDK-IMAGE-host.spdx.tar.zst and SDK-IMAGE-target.spdx.tar.zst in
-tmp-glibc/deploy/sdk contains the index and the files for the single recipes.
+tmp-glibc/deploy/sdk contains the index and the files for the single recipes.  
 
 - For SPDX 3.0.1, SPDX output in JSON format as an SDK-IMAGE.spdx.json file in tmp-glibc/deploy/sdk
-inside the Build Directory.
+inside the Build Directory.  
+
+
+##
+Design
+
+### Integrate [ScanCode Toolkit](https://github.com/nexB/scancode-toolkit) to Yocto projects
+This layer adds 50+ native recipes to provide native tool scancode, and insert hooks to oe-core's SBOM to:  
+
+- scan source, package and sysroot  
+- set scan result to SPDX file  
+
+The oe-core made use of function add_package_files to collect source, package or sysroot, we set hooks around add_package_files  
+
+
+### Enable scan source by default
+This layer supports to scan source, package and sysroot, but only enable scan source by default, two reasons:  
+
+- In add_package_files, upstream oe-core only collect licenses from source  
+- Save built time, it takes a lot of time to call scancode to scan package and sysroot  
+
+
+### Prebuilt SPDX source cache
+Call scancode to scan source will take a lot of time and require mess of CPU/memory resources, especially multiple recipes call scancode parallel.  
+Because of source file is stable between builds, save the output of scancode to a file as cache and release with wr-sbom is workable, the wr-sbom download layer provides prebuilt SPDX source cache for customer to save build time and resources  
+If multiple recipes use the same source code, such as llvm-project-source, clang and compiler-rt, explicitly set SOURCE_NAME with bpn override to share one source cache  
+There are two kinds of cache, one is scancode cache which saves the output of scancode, becuase the size of scancode cache is big that contains many useless values, in order to save disk space, filter out unused values and save as SPDX cache. The Prebuilt SPDX source cache is SPDX cache  
+
+Provide an easy way to create SPDX source cache in build directory:  
+For specific recipe
+```
+bitbake <recipe> -ccreate_spdx_source_cache -f
+```
+
+For world build
+```
+bitbake world --runall=create_spdx_source_cache
+```
+
+For all available BSPs
+```
+../layers/wr-sbom/scripts/create_spdx_source_cache.sh
+```
 
 
 ## Basic configuration
-### SPDX_PRETTY (https://docs.yoctoproject.org/dev/ref-manual/variables.html#term-SPDX_PRETTY)
+### [SPDX_PRETTY](https://docs.yoctoproject.org/dev/ref-manual/variables.html#term-SPDX_PRETTY)
 This option makes the SPDX output more human-readable, using identation and newlines
 ```
 SPDX_PRETTY = "1"
 ```
 
-### SPDX_INCLUDE_SOURCES (https://docs.yoctoproject.org/dev/ref-manual/variables.html#term-SPDX_INCLUDE_SOURCES)
+### [SPDX_INCLUDE_SOURCES](https://docs.yoctoproject.org/dev/ref-manual/variables.html#term-SPDX_INCLUDE_SOURCES)
 This option allows to add a description of the source files used to build the host tools and the target packages
 ```
 SPDX_INCLUDE_SOURCES = "1"
@@ -156,6 +198,34 @@ Only if the size of the matching file in SCANCODE_SOURCE_IGNORES, SCANCODE_SOURC
 ```
 SCANCODE_MAX_FILE_SIZE:bpn-<recipe> = "<INTEGER>"
 ```
+
+### NO_SCANCODE_JSON_CACHE
+Do not use scancode/spdx cache, disable by default
+Globally affected
+```
+NO_SCANCODE_JSON_CACHE = "1"
+```
+For specific recipe
+```
+NO_SCANCODE_JSON_CACHE:bpn-<recipe> = "1"
+
+```
+
+### SOURCE_NAME
+The basename of spdx source cache for specific recipe
+```
+SOURCE_NAME:bpn-<recipe> = "<recipe-name>"
+```
+
+
+## FAQ
+### Resolve OOM failure on scancode
+Tweak SCANCODE_PRECOESSES_NUMBER, SPDX_NUMBER_THREADS and SCANCODE_MAX to reduce scancode parallel  
+
+
+### Workaround timeout failure on scancode
+If scancode timeout on scanning the particular file for specific recipe, set SCANCODE_SYSROOT_IGNORES to filter out the file from scancode or set SCANCODE_SOURCE_SHADOWS, SCANCODE_MAX_READ_LINES and SCANCODE_MAX_FILE_SIZE to scan a part of the file  
+
 
 ***************************************************************************************
 
