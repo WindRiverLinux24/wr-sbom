@@ -227,6 +227,30 @@ Tweak SCANCODE_PRECOESSES_NUMBER, SPDX_NUMBER_THREADS and SCANCODE_MAX to reduce
 If scancode timeout on scanning the particular file for specific recipe, set SCANCODE_SYSROOT_IGNORES to filter out the file from scancode or set SCANCODE_SOURCE_SHADOWS, SCANCODE_MAX_READ_LINES and SCANCODE_MAX_FILE_SIZE to scan a part of the file  
 
 
+## Examples
+Take recipe shadow as example:
+- Provide SPDX with and without this layer as comparing  
+- Compress SPDX cache as XZ to save disk space 
+```
+examples/
+├── 2.2
+│   ├── turn_off
+│   │   └── recipe-shadow.spdx.json
+│   └── turn_on
+│       └── recipe-shadow.spdx.json
+├── 3.0.1
+│   ├── turn_off
+│   │   └── shadow.spdx.json
+│   └── turn_on
+│       └── shadow.spdx.json
+└── cache
+    ├── scancode
+    │   └── scancode-source-shadow-4.14.2.json
+    └── spdx
+        └── spdx-source-shadow-4.14.2.json.xz
+```
+
+
 ***************************************************************************************
 
 
