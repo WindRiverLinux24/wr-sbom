@@ -53,6 +53,16 @@ for machine in $MACHINE; do
     exit 1
   fi
 done
+
+echo "Build recipes excluded from world"
+echo "MACHINE = 'intel-x86-64'" >> conf/local.conf
+bitbake dpdk lmbench ipmitool frr ifenslave -ccreate_spdx_source_cache -f
+bitbake tensorflow tensorflow-estimator tensorflow-lite keras -ccreate_spdx_source_cache -f
+echo 'DISTRO_FEATURES:append = " wayland x11"' >> conf/local.conf
+bitbake gvfs -ccreate_spdx_source_cache -f
+echo 'DISTRO_FEATURES:append = " opengl vulkan"' >> conf/local.conf
+bitbake chromium-x11 -ccreate_spdx_source_cache -f
+
 cp -f conf/local.conf conf/local.conf.spdx
 cp -f conf/local.conf.orig conf/local.conf
 
