@@ -227,6 +227,10 @@ Tweak SCANCODE_PRECOESSES_NUMBER, SPDX_NUMBER_THREADS and SCANCODE_MAX to reduce
 If scancode timeout on scanning the particular file for specific recipe, set SCANCODE_SYSROOT_IGNORES to filter out the file from scancode or set SCANCODE_SOURCE_SHADOWS, SCANCODE_MAX_READ_LINES and SCANCODE_MAX_FILE_SIZE to scan a part of the file  
 
 
+### SPDX License and non-SPDX license
+Call scancode to get two kinds of licenses, one is SPDX License from [SPDX license list](https://spdx.org/licenses/), another is non-SPDX license from [scancode-licensedb](https://scancode-licensedb.aboutcode.org/) which has LicenseRef-scancode prefix  
+
+
 ## Examples
 Take recipe shadow as example:
 - Provide SPDX with and without this layer as comparing  
