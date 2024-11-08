@@ -10,6 +10,12 @@ It integrates [ScanCode Toolkit](https://github.com/nexB/scancode-toolkit) to Yo
 - [Wind River Linux LTS24](https://docs.windriver.com/category/os_linux_lts_24)
 
 ----------------------------------------------------------------------------------------
+## Improvement
+
+- Comparing with native [OpenEmbedded/Yocto SBOM](https://docs.yoctoproject.org/dev/dev-manual/sbom.html), this layer fill in the shortage of [OpenEmbedded/Yocto SBOM on source file scan](https://github.com/openembedded/openembedded-core/blob/master/meta/lib/oe/spdx_common.py#L17-L39), using [ScanCode Toolkit](https://github.com/nexB/scancode-toolkit) to detect all available licenses and copyrights from source file as many as possible 
+
+- Comparing with native [ScanCode Toolkit](https://github.com/nexB/scancode-toolkit), this layer fill in the shortage of [ScanCode Toolkit support for SPDX 3.0](https://github.com/aboutcode-org/scancode-toolkit/issues/3867), 100% compatible with OpenEmbedded/Yocto SBOM on the support of SPDX 3.0.1 
+
 ## Quick Start
 
 ### Requirement
