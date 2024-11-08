@@ -53,8 +53,7 @@ tmp-glibc/deploy/sdk contains the index and the files for the single recipes.
 inside the Build Directory.  
 
 
-##
-Design
+## Design
 
 ### Integrate [ScanCode Toolkit](https://github.com/nexB/scancode-toolkit) to Yocto projects
 This layer adds 50+ native recipes to provide native tool scancode, and insert hooks to oe-core's SBOM to:  
@@ -200,7 +199,8 @@ SCANCODE_MAX_FILE_SIZE:bpn-<recipe> = "<INTEGER>"
 ```
 
 ### NO_SCANCODE_JSON_CACHE
-Do not use scancode/spdx cache, disable by default
+Turn on the variable to not use scancode/spdx cache, turn off it by default 
+
 Globally affected
 ```
 NO_SCANCODE_JSON_CACHE = "1"
@@ -208,7 +208,6 @@ NO_SCANCODE_JSON_CACHE = "1"
 For specific recipe
 ```
 NO_SCANCODE_JSON_CACHE:bpn-<recipe> = "1"
-
 ```
 
 ### SOURCE_NAME
