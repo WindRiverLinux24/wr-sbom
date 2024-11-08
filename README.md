@@ -235,6 +235,9 @@ If scancode timeout on scanning the particular file for specific recipe, set SCA
 ### SPDX License and non-SPDX license
 Call scancode to get two kinds of licenses, one is SPDX License from [SPDX license list](https://spdx.org/licenses/), another is non-SPDX license from [scancode-licensedb](https://scancode-licensedb.aboutcode.org/) which has LicenseRef-scancode prefix  
 
+### Increase the burden of disk IO
+Due to [Yocto SBOM saves patched source of the recipe in SPDX_WORKDIR](https://github.com/openembedded/openembedded-core/blob/master/meta/lib/oe/spdx_common.py#L164-L213), the SBOM feature will significantly increase the burden of disk IO and consume mess of file system inodes  
+Please use high performance disk for your build and allocate sufficient inodes number to the disk while making file system  
 
 ## Examples
 Take recipe shadow as example:
