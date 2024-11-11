@@ -80,7 +80,7 @@ if [ ! -d ${dl_dir} ]; then
 fi
 cd ${dl_dir}
 git add scancode-cache/spdx/spdx-source-*.json.xz
-git commit -m "Add spdx source caches"
+git commit -s -m "Update spdx source caches on $(date '+%Y-%m-%d')"
 if [ $? -ne 0 ]; then
   echo "No spdx source caches are added"
 fi
