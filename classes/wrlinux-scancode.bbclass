@@ -1,5 +1,7 @@
-# SPDX-License-Identifier: MIT
+#
 # Copyright (C) 2024 Wind River Systems, Inc.
+#
+# SPDX-License-Identifier: GPL-2.0-only
 #
 
 SBOM_DEPENS ??= " \

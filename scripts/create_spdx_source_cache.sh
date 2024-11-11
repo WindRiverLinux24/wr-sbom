@@ -1,4 +1,10 @@
 #!/bin/bash
+#
+# Copyright (C) 2024 Wind River Systems, Inc.
+#
+# SPDX-License-Identifier: GPL-2.0-only
+#
+
 MACHINE="
   genericarm64
   genericx86
