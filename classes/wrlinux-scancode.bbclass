@@ -78,6 +78,15 @@ NO_SCANCODE_JSON_CACHE ??= "0"
 
 require conf/sbom.conf
 
+addhandler scancode_semaphore_prepare
+scancode_semaphore_prepare[eventmask] = "bb.event.CacheLoadStarted"
+python scancode_semaphore_prepare() {
+    scancode_sem = d.getVar("SCANCODE_SEMAPHORE")
+    if os.path.exists(scancode_sem):
+        bb.note(f"Clean up {scancode_sem}")
+        os.remove(scancode_sem)
+}
+
 def init_spdx2(prefix, doc, spdx_json):
     import json
     # data = {

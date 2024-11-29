@@ -108,12 +108,3 @@ do_install:append () {
     install -m 755 ${WORKDIR}/update-spdx.py ${D}${bindir}
     install -m 755 ${WORKDIR}/scancode-to-spdx.py ${D}${bindir}
 }
-
-SCANCODE_SEMAPHORE ??= "${TOPDIR}/scancode.semaphore"
-python __anonymous () {
-    scancode_sem = d.getVar("SCANCODE_SEMAPHORE")
-    if os.path.exists(scancode_sem):
-        bb.note(f"Clen up {scancode_sem}")
-        os.remove(scancode_sem)
-}
-
