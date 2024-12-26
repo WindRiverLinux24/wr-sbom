@@ -218,16 +218,19 @@ def _add_license_text(objset, name, license_text):
             simplelicensing_licenseText=license_text,
         )
     )
+    objset.set_element_alias(lic)
     return lic
 
 def _add_license_expression(objset, license_expression, license_text, license_data):
     if license_text:
         _license_text_map = {
-            license_expression: _add_license_text(
+            license_expression: oe.sbom30.get_element_link_id(
+                                _add_license_text(
                                     objset,
                                     license_expression,
                                     license_text
-                                )._id
+                                )
+            )
         }
 
         return objset.new_license_expression(
@@ -279,14 +282,14 @@ def update_objset(spdx_json, prefix, objset, build_objset, spdx_files, license_d
                         license_text = extra_lic.get("simplelicensing_licenseText") or extra_lic.get("extractedText")
                     break
                 lic = _add_license_expression(build_objset, license, license_text, license_data)
+                objset.set_element_alias(lic)
                 _lic_data[license] = lic
 
     # _spdx_data = {
     #   "<file's spdxId>": {
     #     "status": "undo"|"done",
     #     "SHA256": "<checksumValue>",
-    #     "license_objects": [<license expression object>],
-    #     "license_spdxIds": [<license expression string>]
+    #     "license_alias": [<license expression string>]
     #     "fileName": "<fileName>"
     #     "spdx_file": "<spdx_file>"
     #   }
@@ -298,14 +301,12 @@ def update_objset(spdx_json, prefix, objset, build_objset, spdx_files, license_d
         _spdx_data[spdxId]["fileName"] = fileName
         _spdx_data[spdxId]["SHA256"] = spdx_data[fileName]["SHA256"]
         _spdx_data[spdxId]["status"] = "undo"
-        _spdx_data[spdxId]["license_objects"] = []
-        _spdx_data[spdxId]["license_spdxIds"] = []
+        _spdx_data[spdxId]["license_alias"] = []
         for license in spdx_data[fileName].get("licenseInfoInFiles", []):
             if license == "NONE":
                 continue
             lic_obj = _lic_data[license]
-            _spdx_data[spdxId]["license_objects"].append(lic_obj)
-            _spdx_data[spdxId]["license_spdxIds"].append(lic_obj.spdxId)
+            _spdx_data[spdxId]["license_alias"].append(oe.sbom30.get_element_link_id(lic_obj))
 
     for spdx_file in spdx_files:
         spdxId = spdx_file.spdxId
@@ -323,9 +324,9 @@ def update_objset(spdx_json, prefix, objset, build_objset, spdx_files, license_d
         if spdxId not in _spdx_data:
             continue
 
-        license_objects = _spdx_data[spdxId]["license_objects"]
+        license_alias = _spdx_data[spdxId]["license_alias"]
         _spdx_data[spdxId]["status"] = "done"
-        if not license_objects:
+        if not license_alias:
             continue
 
         # Remove `NoneElement' if available
@@ -335,7 +336,7 @@ def update_objset(spdx_json, prefix, objset, build_objset, spdx_files, license_d
         rel.to = [to for to in rel.to if to != oe.spdx30.Element.NoAssertionElement]
 
         # Append license expression objects to rel.to
-        for lic in license_objects:
+        for lic in license_alias:
             if lic not in rel.to:
                 rel.to.append(lic)
 
@@ -344,14 +345,7 @@ def update_objset(spdx_json, prefix, objset, build_objset, spdx_files, license_d
     for spdxId in _spdx_data:
         if _spdx_data[spdxId]["status"] == "undo":
             _spdx_data[spdxId]["status"] = "done"
-            if objset == build_objset:
-                # The build objset requires license objects
-                licenses = _spdx_data[spdxId].get("license_objects")
-            else:
-                # The pkg objset requires license spdxIds otherwise
-                # failed because of duplicated license objects
-                # in build objset and pkg object
-                licenses = _spdx_data[spdxId].get("license_spdxIds")
+            licenses = _spdx_data[spdxId].get("license_alias")
 
             if not licenses:
                 continue
